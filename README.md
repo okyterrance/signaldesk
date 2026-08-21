@@ -178,10 +178,15 @@ in a test rather than something you re-run the bot and hope to see again.
 
 ## AI used
 
-**Models** — Anthropic Claude Sonnet 4.6, falling back to OpenAI GPT-5.4,
-both via TokenRouter's OpenAI-compatible endpoint. The chain is
-deliberately *cross-family*: two models from one vendor give you a retry,
-not a fallback, because an outage takes out both links at once.
+**Models** — Moonshot Kimi K3, falling back to xAI Grok 4.3, both via
+TokenRouter's OpenAI-compatible endpoint. The chain is deliberately
+*cross-family*: two models from one vendor give you a retry, not a
+fallback, because an outage takes out both links at once.
+
+Model slugs are entitlement-specific — a key answers HTTP 403 "no access
+to model X" for anything outside its plan, and slugs do not transfer
+between keys. `scripts/list_models.py` asks the provider what a given key
+can actually call, which beats discovering it one failed run at a time.
 
 **Where the model is and isn't** — it writes the briefing. It does not
 select, rank, re-order, or fetch. The system prompt says so explicitly,

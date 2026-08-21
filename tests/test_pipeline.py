@@ -175,7 +175,7 @@ class TestRendering:
                 fear_greed_label="Greed",
             ),
             generated_at=datetime.now(timezone.utc),
-            llm_model="anthropic/claude-sonnet-4.6",
+            llm_model="moonshotai/kimi-k3",
         )
 
     def test_digest_renders_within_telegram_limits(self, crypto_items):

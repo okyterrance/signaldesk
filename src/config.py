@@ -25,7 +25,13 @@ class Settings(BaseSettings):
     tokenrouter_base_url: str = "https://api.tokenrouter.com/v1"
     # Ordered fallback chain. First provider to return usable output wins;
     # cross-family on purpose, so one vendor's outage is not ours.
-    llm_model_chain: list[str] = ["anthropic/claude-sonnet-4.6", "openai/gpt-5.4"]
+    #
+    # Slugs are entitlement-specific: a TokenRouter key answers 403 "no
+    # access to model X" for anything outside its plan, and the slugs a
+    # different project uses will not transfer. Run
+    # `python scripts/list_models.py` to see what a given key may call,
+    # then override here or via LLM_MODEL_CHAIN in .env.
+    llm_model_chain: list[str] = ["moonshotai/kimi-k3", "x-ai/grok-4.3"]
     llm_timeout_s: float = 60.0
     llm_max_tokens: int = 1400
 
