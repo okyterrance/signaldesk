@@ -26,6 +26,13 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 log = logging.getLogger("signaldesk")
 
 
+def _ellipsize(text: str, width: int) -> str:
+    """Truncate on a word boundary. Cutting mid-word looks like a crash."""
+    if len(text) <= width:
+        return text
+    return text[: width - 1].rsplit(" ", 1)[0] + "…"
+
+
 async def run_once(demo: bool = False) -> None:
     """Dry run with no Telegram involved -- the fastest way to see the ranking."""
     from src import pipeline
@@ -50,7 +57,7 @@ async def run_once(demo: bool = False) -> None:
     for i, item in enumerate(result.items, 1):
         bar = "█" * round(item.score * 20)
         print(f"{i:2}. [{item.score:.3f}] {bar}")
-        print(f"    {item.title[:76]}")
+        print(f"    {_ellipsize(item.title, 76)}")
         print(f"    {item.source} · {item.bucket}"
               + (f" · x{item.source_count} outlets" if item.source_count > 1 else ""))
         if item.breakdown:

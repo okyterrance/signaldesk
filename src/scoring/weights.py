@@ -264,21 +264,78 @@ def score_all(items: list[NewsItem], now: datetime | None = None) -> list[NewsIt
     return items
 
 
+# --- subject diversity --------------------------------------------------
+
+# Deduping collapses the same *story*. It cannot collapse the same
+# *narrative*: five separate, genuinely distinct articles about bitcoin's
+# move are five different stories that a reader experiences as one point
+# made five times. A live run filled 5 of 12 slots that way.
+_SUBJECTS: list[tuple[str, re.Pattern[str]]] = [
+    ("bitcoin", re.compile(r"\b(btc|bitcoin)\b", re.IGNORECASE)),
+    ("ethereum", re.compile(r"\b(eth|ethereum|ether)\b", re.IGNORECASE)),
+    ("solana", re.compile(r"\b(sol|solana)\b", re.IGNORECASE)),
+    ("xrp", re.compile(r"\b(xrp|ripple)\b", re.IGNORECASE)),
+]
+
+
+def primary_subject(item: NewsItem) -> str | None:
+    """First asset named in the headline, or None for asset-free stories.
+
+    Order matters and is deliberate: "Bitcoin, ether and solana climb"
+    counts as bitcoin, because that is the subject a reader files it
+    under. Macro and regulatory stories return None and are never capped
+    -- they are already the scarce half of the digest.
+    """
+    for name, pattern in _SUBJECTS:
+        if pattern.search(item.title):
+            return name
+    return None
+
+
 def select_top(
-    scored: list[NewsItem], min_n: int, max_n: int, threshold: float = 0.30
+    scored: list[NewsItem],
+    min_n: int,
+    max_n: int,
+    threshold: float = 0.30,
+    max_per_subject: int = 3,
 ) -> list[NewsItem]:
-    """Adaptive top-N: quality gate first, fixed count only as a floor.
+    """Adaptive top-N: quality gate, subject cap, fixed count as a floor.
 
     A quiet news day should produce a short digest, not `max_n` slots
     padded with whatever ranked highest among the noise. But an empty
     digest is a broken-looking bot, so `min_n` backfills by rank when the
     gate admits too few.
+
+    The subject cap is a preference, not a quota. If enforcing it would
+    push the digest below `min_n`, held-back items are let back in: a
+    repetitive digest beats a thin one.
     """
     if not scored:
         return []
-    above = [i for i in scored if i.score >= threshold]
-    if len(above) >= max_n:
-        return above[:max_n]
-    if len(above) >= min_n:
-        return above
-    return scored[:min_n]
+
+    pool = [i for i in scored if i.score >= threshold]
+    if len(pool) < min_n:
+        pool = scored[:min_n]
+
+    picked: list[NewsItem] = []
+    held: list[NewsItem] = []
+    seen: dict[str, int] = {}
+
+    for item in pool:
+        if len(picked) >= max_n:
+            break
+        subject = primary_subject(item)
+        if subject and seen.get(subject, 0) >= max_per_subject:
+            held.append(item)
+            continue
+        picked.append(item)
+        if subject:
+            seen[subject] = seen.get(subject, 0) + 1
+
+    for item in held:
+        if len(picked) >= min_n:
+            break
+        picked.append(item)
+
+    picked.sort(key=lambda i: -i.score)
+    return picked[:max_n]

@@ -99,6 +99,15 @@ _ENTITY_IGNORE = frozenset({
     "after", "before", "amid", "as", "while", "data", "analysis", "report",
     "us", "usd", "usdt", "wall", "street", "south", "north", "korean",
     "korea", "japanese", "japan", "index", "live", "breaking", "update",
+    # Category nouns that pass the capitalisation test but name no event.
+    # ETF was the expensive one: it reads as a rare proper noun, so
+    # "Bitcoin spot ETF outflows" and "BlackRock's spot Ethereum ETF"
+    # merged into one story on the strength of sharing "ETF" and "spot".
+    # Plurals are listed explicitly rather than stripped, because a
+    # trailing-s rule would also mangle real names.
+    "etf", "etfs", "nft", "nfts", "dao", "daos", "ipo", "ipos",
+    "ceo", "cfo", "cto", "api", "apis", "ai", "tvl", "defi", "gdp",
+    "cpi", "ppi", "pce", "q1", "q2", "q3", "q4",
 })
 
 # Half the crypto feed mentions BTC or ETH; co-mention alone identifies
@@ -133,6 +142,61 @@ def same_event(a: NewsItem, b: NewsItem) -> bool:
     return len(shared) / len(ta | tb) >= 0.5
 
 
+def content_tokens(title: str) -> frozenset[str]:
+    return frozenset(normalize(title).split())
+
+
+def rarity_ceiling(batch_size: int, rare_max: int = 4) -> int:
+    """How many headlines an entity may appear in and still count as rare.
+
+    Relative, not absolute. An entity in 3 of 41 headlines is genuinely
+    rare; the same 3 out of 8 is over a third of the batch and rare only
+    on paper. An absolute ceiling gets this backwards on small batches,
+    which is exactly where a false merge costs the most.
+    """
+    return max(2, min(rare_max, int(batch_size * 0.10)))
+
+
+def rare_entity_match(
+    a: NewsItem, b: NewsItem, entity_df: dict[str, int], ceiling: int = 4
+) -> bool:
+    """Match on a single shared entity, when that entity is rare in the batch.
+
+    The two-entity minimum in `same_event` is right for common subjects and
+    wrong for terse headlines. Live run: "Apollo Global reveals data breach
+    after hackers target financial firms" and "Apollo says hackers accessed
+    personal data in latest Wall Street breach" are one story, but the
+    second yields only `apollo` as an entity -- Wall and Street are on the
+    ignore list -- so the pair never reached the threshold and both took a
+    slot in the same digest.
+
+    One shared *rare* proper noun is strong evidence on its own. Two
+    unrelated stories about MANTRA on the same day is not how news works.
+    The rarity ceiling is what keeps this from firing on ubiquitous names
+    like SEC or Coinbase, which really do appear across unrelated stories.
+
+    Guard: the pair must also share a content word that is not the entity
+    itself, so "Coinbase launches X" and "Coinbase sued by Y" stay apart.
+    """
+    shared_entities = (entity_tokens(a.title) & entity_tokens(b.title)) - _GENERIC_ENTITIES
+    if not shared_entities:
+        return False
+    if any(entity_df.get(e, 0) > ceiling for e in shared_entities):
+        return False
+
+    shared_content = content_tokens(a.title) & content_tokens(b.title)
+    return bool(shared_content - shared_entities)
+
+
+def entity_frequencies(items: list[NewsItem]) -> dict[str, int]:
+    """How many headlines each entity appears in, for the rarity test."""
+    df: dict[str, int] = {}
+    for item in items:
+        for entity in entity_tokens(item.title):
+            df[entity] = df.get(entity, 0) + 1
+    return df
+
+
 # --- merge ------------------------------------------------------------
 
 def dedupe(items: list[NewsItem], threshold: float = 0.50) -> list[NewsItem]:
@@ -158,9 +222,15 @@ def dedupe(items: list[NewsItem], threshold: float = 0.50) -> list[NewsItem]:
     corpus = [normalize(f"{i.title} {' '.join(i.tags)}") for i in items]
     matrix = TfidfVectorizer(max_features=1000, ngram_range=(1, 2)).fit_transform(corpus)
     sim = cosine_similarity(matrix)
+    entity_df = entity_frequencies(items)
+    ceiling = rarity_ceiling(len(items))
 
     def matches(a: int, b: int) -> bool:
-        return bool(sim[a, b] >= threshold or same_event(items[a], items[b]))
+        return bool(
+            sim[a, b] >= threshold
+            or same_event(items[a], items[b])
+            or rare_entity_match(items[a], items[b], entity_df, ceiling)
+        )
 
     merged: list[NewsItem] = []
     claimed: set[int] = set()

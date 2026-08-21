@@ -95,9 +95,21 @@ async def complete_json(
                 response.raise_for_status()
                 content = response.json()["choices"][0]["message"]["content"]
                 return LLMResult(data=_extract_json(content), model=model, ok=True)
+            except httpx.HTTPStatusError as exc:
+                # The status and the provider's own error body are the whole
+                # diagnosis -- 401 is the key, 404 is the model slug, 400 is
+                # the payload. Logging only the exception class, as this did
+                # at first, leaves you guessing at all three.
+                log.warning(
+                    "llm provider failed: %s -> HTTP %s: %s",
+                    model,
+                    exc.response.status_code,
+                    exc.response.text[:400].replace("\n", " "),
+                )
+                continue
             except Exception as exc:
                 log.warning(
-                    "llm provider failed: %s (%s)", model, type(exc).__name__
+                    "llm provider failed: %s (%s: %s)", model, type(exc).__name__, exc
                 )
                 continue
 

@@ -22,6 +22,7 @@ from src.scoring.filters import (
 from src.scoring.weights import (
     FACTOR_WEIGHTS,
     keyword_score,
+    primary_subject,
     recency_score,
     score_item,
     select_top,
@@ -187,6 +188,83 @@ class TestDedup:
         ]
         assert len(dedupe(items)) == 3
 
+    def test_single_rare_entity_merges_when_content_agrees(self):
+        """Regression from a live run: one shared rare name is enough.
+
+        Both of these ran in the same digest. The second yields only
+        `apollo` as an entity (Wall and Street are ignored), so the
+        two-entity rule never fired and one story took two slots.
+        """
+        items = [
+            make_item("Apollo Global reveals data breach after hackers target firms",
+                      source="Channel News Asia"),
+            make_item("Apollo says hackers accessed personal data in latest Wall Street breach",
+                      source="FT Markets"),
+        ]
+        assert len(dedupe(items)) == 1
+
+    def test_single_rare_entity_merges_title_case_headline(self):
+        """Same rule, where the second headline is entirely title-cased."""
+        items = [
+            make_item("MANTRA token plunges 18% to record low as blockchain halts after exploit",
+                      source="CoinDesk"),
+            make_item("MANTRA Halts Chain, Blames Cosmos EVM Module",
+                      source="The Defiant"),
+        ]
+        assert len(dedupe(items)) == 1
+
+    def test_category_acronyms_are_not_entities(self):
+        """Regression: 'ETF' read as a rare proper noun and merged the feed.
+
+        These are three unrelated stories that happen to share the words
+        'spot' and 'ETF'. Before ETF joined the ignore list, the
+        single-rare-entity rule chained all three into one cluster and two
+        real stories vanished from the digest.
+        """
+        items = [
+            make_item("Bitcoin slips below $63,000 as spot ETF outflows accelerate",
+                      source="CoinDesk"),
+            make_item("BlackRock files for staking feature on its spot Ethereum ETF",
+                      source="The Block"),
+            make_item("SEC approves spot Solana ETF applications from three issuers",
+                      source="Unchained"),
+        ]
+        assert len(dedupe(items)) == 3
+
+    def test_rarity_ceiling_scales_with_batch_size(self):
+        """3-of-8 is not rare; 3-of-60 is. An absolute ceiling gets this wrong."""
+        from src.scoring.dedup import rarity_ceiling
+
+        assert rarity_ceiling(8) == 2
+        assert rarity_ceiling(41) == 4
+        assert rarity_ceiling(150) == 4
+
+    def test_shared_rare_entity_alone_does_not_merge(self):
+        """The guard: same company, unrelated events, no shared content."""
+        items = [
+            make_item("Apollo launches new infrastructure fund"),
+            make_item("Apollo executive departs for rival firm"),
+        ]
+        assert len(dedupe(items)) == 2
+
+    def test_common_entity_does_not_trigger_rare_match(self):
+        """A name in many headlines is not evidence of a shared event.
+
+        All seven share the word SEC and nothing else. Because SEC clears
+        the rarity ceiling, the single-entity rule must stay silent and
+        leave seven distinct stories standing.
+        """
+        items = [
+            make_item("SEC reviews custody disclosures from registered advisers"),
+            make_item("SEC delays decision on staking product"),
+            make_item("SEC hires new enforcement director"),
+            make_item("SEC publishes guidance for transfer agents"),
+            make_item("SEC opens comment window on market structure"),
+            make_item("SEC budget request lands before appropriators"),
+            make_item("SEC chair testifies to Senate banking panel"),
+        ]
+        assert len(dedupe(items)) == 7
+
     def test_dedupe_handles_trivial_inputs(self):
         assert dedupe([]) == []
         single = [make_item("Only story")]
@@ -325,3 +403,45 @@ class TestSelection:
 
     def test_empty_input(self):
         assert select_top([], 2, 5) == []
+
+    def test_one_asset_cannot_monopolise_the_digest(self):
+        """Regression: a live run gave 5 of 12 slots to bitcoin commentary.
+
+        Five genuinely distinct articles, so dedup correctly left them
+        alone -- but a reader experiences one point made five times.
+        """
+        items = []
+        for i, title in enumerate([
+            "Bitcoin tops $75,000 for first time in three months",
+            "Bitcoin faces $80,000 test as weekend liquidity thins",
+            "Analysts split on whether Bitcoin's surge signals a new bull",
+            "Treasury measure isn't QE, still bitcoin is climbing",
+            "Bitcoin, ether and solana climb as shorts get wiped out",
+            "Fed holds rates steady before year end",
+            "SEC clarifies custody rules for registered advisers",
+        ]):
+            item = make_item(title)
+            item.score = 0.9 - i * 0.01
+            items.append(item)
+
+        picked = select_top(items, min_n=2, max_n=6, threshold=0.30)
+        bitcoin_count = sum(1 for i in picked if primary_subject(i) == "bitcoin")
+        assert bitcoin_count <= 3
+        assert any("Fed holds rates" in i.title for i in picked)
+        assert any("SEC clarifies" in i.title for i in picked)
+
+    def test_subject_cap_yields_when_it_would_starve_the_digest(self):
+        """The cap is a preference. Below min_n, held items come back."""
+        items = []
+        for i in range(5):
+            item = make_item(f"Bitcoin story number {i} about the rally")
+            item.score = 0.9 - i * 0.01
+            items.append(item)
+
+        picked = select_top(items, min_n=4, max_n=5, threshold=0.30)
+        assert len(picked) == 4
+
+    def test_macro_stories_are_never_capped(self):
+        """Asset-free stories return no subject, so the cap cannot touch them."""
+        assert primary_subject(make_item("Fed holds rates steady")) is None
+        assert primary_subject(make_item("Bitcoin, ether and solana climb")) == "bitcoin"
