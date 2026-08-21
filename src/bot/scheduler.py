@@ -1,0 +1,97 @@
+"""The two automatic jobs: the daily digest, and the threshold alert loop.
+
+The alert loop is where the scoring engine earns its keep. It re-runs the
+pipeline on a short interval and pushes anything at or above the
+threshold *immediately*, instead of holding it for the morning. A digest
+answers "what happened yesterday"; the alert answers "this cannot wait".
+
+Both are registered on python-telegram-bot's JobQueue, so they share the
+bot's event loop and no separate scheduler process is needed.
+"""
+from __future__ import annotations
+
+import logging
+from datetime import time as dt_time
+from zoneinfo import ZoneInfo
+
+from telegram.constants import ParseMode
+from telegram.ext import Application, ContextTypes
+
+from src import pipeline
+from src.bot import format as fmt
+from src.bot.state import state
+from src.config import settings
+from src.llm.digest import build_digest
+
+log = logging.getLogger(__name__)
+
+_SEND = {"parse_mode": ParseMode.HTML, "disable_web_page_preview": True}
+
+
+async def daily_digest_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    log.info("running scheduled digest")
+    try:
+        result = await pipeline.run()
+        state.remember(result.items, result.market, result.stats)
+        built = await build_digest(result.items, result.market)
+        await ctx.bot.send_message(
+            chat_id=settings.telegram_chat_id, text=fmt.render_digest(built), **_SEND
+        )
+        # Anything already in the digest should not also fire as an alert
+        # minutes later. The reader has seen it.
+        for item in result.items:
+            state.mark_alerted(item)
+        log.info("digest sent: %s stories", len(result.items))
+    except Exception:
+        log.exception("scheduled digest failed")
+
+
+async def alert_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    threshold = state.alert_threshold or settings.alert_threshold
+    try:
+        result = await pipeline.run(with_market=False)
+        state.remember(result.items, state.last_market, result.stats)
+
+        fired = 0
+        for item in result.items:
+            if item.score < threshold:
+                break  # items are sorted, so nothing below here qualifies
+            if not state.should_alert(item):
+                continue
+            await ctx.bot.send_message(
+                chat_id=settings.telegram_chat_id, text=fmt.render_alert(item), **_SEND
+            )
+            state.mark_alerted(item)
+            fired += 1
+
+        if fired:
+            log.info("alerts fired: %s (threshold %.2f)", fired, threshold)
+    except Exception:
+        log.exception("alert poll failed")
+
+
+def register_jobs(app: Application) -> None:
+    hour, minute = (int(x) for x in settings.digest_time.split(":"))
+    tz = ZoneInfo(settings.digest_tz)
+
+    app.job_queue.run_daily(
+        daily_digest_job,
+        time=dt_time(hour=hour, minute=minute, tzinfo=tz),
+        name="daily_digest",
+    )
+
+    # first=60 rather than 0: let the process finish starting before the
+    # first twelve-feed fetch goes out.
+    app.job_queue.run_repeating(
+        alert_job,
+        interval=settings.alert_poll_minutes * 60,
+        first=60,
+        name="alert_poll",
+    )
+
+    log.info(
+        "jobs registered: digest %s %s, alerts every %smin",
+        settings.digest_time,
+        settings.digest_tz,
+        settings.alert_poll_minutes,
+    )
