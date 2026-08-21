@@ -1,18 +1,20 @@
-"""Shared in-memory state between commands and scheduled jobs.
+"""In-memory state shared between commands and scheduled jobs.
 
-Two things need to persist across handler calls:
+Two things need to survive between handler calls:
 
-  1. The last ranked result, so `/why 3` refers to the same story `/top`
-     just printed. Without it, `/why` would have to re-run the pipeline
-     and could easily answer about a different story than the one the
-     user is looking at.
+  1. The last ranked result *per chat*, so `/why 3` refers to the same
+     story `/top` just printed. It is keyed by chat because rankings are
+     now per-chat — serving one reader's security-only ranking to another
+     who asked for everything would be worse than no cache at all.
+
+     The cache also records the preferences it was computed under, so a
+     settings change invalidates it implicitly as well as explicitly.
 
   2. Which stories have already been alerted on, so a story sitting above
      threshold does not re-fire every polling cycle for as long as it
-     stays in the 24h window.
-
-The alerted set is capped and time-pruned rather than growing forever;
-a long-running process should not leak memory over a URL set.
+     stays inside the 24h window. That set is time-pruned rather than
+     growing forever; a long-running process should not leak memory over
+     a set of URLs.
 """
 from __future__ import annotations
 
@@ -21,30 +23,70 @@ from datetime import datetime, timedelta, timezone
 
 from src.models import MarketSnapshot, NewsItem
 
+CACHE_TTL_MINUTES = 20
+
+
+@dataclass
+class ChatCache:
+    items: list[NewsItem]
+    market: MarketSnapshot
+    stats: dict
+    signature: tuple
+    ran_at: datetime
+
+    def is_fresh(self, signature: tuple) -> bool:
+        if signature != self.signature:
+            return False
+        age = datetime.now(timezone.utc) - self.ran_at
+        return age < timedelta(minutes=CACHE_TTL_MINUTES)
+
+
+def _signature(prefs) -> tuple:
+    """What the ranking depended on. Any change here invalidates the cache."""
+    return (tuple(sorted(prefs.categories)), prefs.depth)
+
 
 @dataclass
 class BotState:
-    last_items: list[NewsItem] = field(default_factory=list)
-    last_market: MarketSnapshot = field(default_factory=MarketSnapshot)
-    last_stats: dict = field(default_factory=dict)
-    last_run: datetime | None = None
-
-    alert_threshold: float | None = None      # None -> use the configured default
+    _chats: dict[str, ChatCache] = field(default_factory=dict)
     _alerted: dict[str, datetime] = field(default_factory=dict)
 
-    def remember(
-        self, items: list[NewsItem], market: MarketSnapshot, stats: dict
-    ) -> None:
-        self.last_items = items
-        self.last_market = market
-        self.last_stats = stats
-        self.last_run = datetime.now(timezone.utc)
+    alert_threshold: float | None = None   # None -> use the configured default
 
-    def is_fresh(self, max_age_minutes: int = 20) -> bool:
-        if not self.last_run or not self.last_items:
-            return False
-        age = datetime.now(timezone.utc) - self.last_run
-        return age < timedelta(minutes=max_age_minutes)
+    # --- per-chat ranking cache ---
+
+    def remember(
+        self,
+        chat_id: str | int,
+        prefs,
+        items: list[NewsItem],
+        market: MarketSnapshot,
+        stats: dict,
+    ) -> None:
+        self._chats[str(chat_id)] = ChatCache(
+            items=items,
+            market=market,
+            stats=stats,
+            signature=_signature(prefs),
+            ran_at=datetime.now(timezone.utc),
+        )
+
+    def get_cached(self, chat_id: str | int, prefs) -> list[NewsItem] | None:
+        cached = self._chats.get(str(chat_id))
+        if cached and cached.is_fresh(_signature(prefs)):
+            return cached.items
+        return None
+
+    def market_for(self, chat_id: str | int) -> MarketSnapshot:
+        cached = self._chats.get(str(chat_id))
+        return cached.market if cached else MarketSnapshot()
+
+    def stats_for(self, chat_id: str | int) -> dict:
+        cached = self._chats.get(str(chat_id))
+        return cached.stats if cached else {}
+
+    def invalidate(self, chat_id: str | int) -> None:
+        self._chats.pop(str(chat_id), None)
 
     # --- alert de-duplication ---
 

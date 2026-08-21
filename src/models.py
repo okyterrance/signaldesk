@@ -39,7 +39,8 @@ class NewsItem:
     url: str
     source: str
     published_at: datetime          # always tz-aware UTC
-    bucket: str = "crypto"          # crypto | macro
+    bucket: str = "crypto"          # crypto | macro — scoring pool
+    category: str | None = None     # reader-facing label, see scoring/categories
     tags: list[str] = field(default_factory=list)
     summary: str = ""
     source_count: int = 1           # how many outlets ran the same story

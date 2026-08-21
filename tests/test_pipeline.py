@@ -21,7 +21,7 @@ from src.bot import format as fmt
 from src.fetchers.rss import parse_feed
 from src.models import Digest, MarketSnapshot
 from src.scoring.dedup import dedupe
-from src.scoring.weights import score_all, select_top
+from src.scoring.weights import FACTOR_WEIGHTS, score_all, select_top
 
 
 def rfc822(hours_ago: float) -> str:
@@ -142,7 +142,7 @@ class TestRankingEndToEnd:
         items, _ = crypto_items
         for item in score_all(dedupe(items)):
             assert item.breakdown is not None
-            assert len(item.breakdown.factors) == 7
+            assert len(item.breakdown.factors) == len(FACTOR_WEIGHTS)
             assert item.breakdown.total == pytest.approx(item.score)
 
     def test_buckets_are_scored_independently(self):
@@ -181,7 +181,7 @@ class TestRendering:
     def test_digest_renders_within_telegram_limits(self, crypto_items):
         text = fmt.render_digest(self._digest(crypto_items))
         assert len(text) <= fmt.TG_LIMIT
-        assert "SignalDesk Daily" in text
+        assert "SignalDesk" in text
         assert text.count("<b>") == text.count("</b>")
         assert text.count("<i>") == text.count("</i>")
 
@@ -190,28 +190,32 @@ class TestRendering:
         assert "&amp;" in fmt.esc("Barnes & Noble")
         assert "&lt;" in fmt.esc("a < b")
 
-    def test_why_shows_all_seven_factors(self, crypto_items):
+    def test_why_shows_every_factor(self, crypto_items):
         items, _ = crypto_items
         ranked = score_all(dedupe(items))
         text = fmt.render_why(ranked[0], 1)
 
-        for factor in ("keyword", "recency", "source_quality", "category",
-                       "source_count", "numeric", "asset"):
+        for factor in FACTOR_WEIGHTS:
             assert factor in text
         assert "TOTAL" in text
         assert "What drove it" in text
 
-    def test_top_renders_with_score_bars(self, crypto_items):
+    def test_top_renders_one_entry_per_story(self, crypto_items):
+        """Fixed three-line shape per entry, no score bars."""
         items, _ = crypto_items
-        text = fmt.render_top(score_all(dedupe(items)), 5)
-        assert "█" in text or "░" in text
+        ranked = score_all(dedupe(items))
+        text = fmt.render_top(ranked, 5)
+        assert "Top stories" in text
+        assert "█" not in text and "░" not in text
+        for i in range(1, min(5, len(ranked)) + 1):
+            assert f"<b>{i}</b>" in text
         assert len(text) <= fmt.TG_LIMIT
 
     def test_alert_renders(self, crypto_items):
         items, _ = crypto_items
         ranked = score_all(dedupe(items))
         text = fmt.render_alert(ranked[0])
-        assert "Threshold alert" in text
+        assert "Alert" in text
         assert len(text) <= fmt.TG_LIMIT
 
     def test_long_content_is_clipped_not_dropped(self):

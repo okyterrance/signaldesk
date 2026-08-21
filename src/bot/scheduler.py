@@ -1,9 +1,14 @@
 """The two automatic jobs: the daily digest, and the threshold alert loop.
 
 The alert loop is where the scoring engine earns its keep. It re-runs the
-pipeline on a short interval and pushes anything at or above the
-threshold *immediately*, instead of holding it for the morning. A digest
-answers "what happened yesterday"; the alert answers "this cannot wait".
+pipeline on a short interval and pushes anything at or above the threshold
+*immediately*, instead of holding it for the morning. A digest answers
+"what happened yesterday"; an alert answers "this cannot wait".
+
+Both run against the destination chat's own preferences, so the scheduled
+briefing is filtered and weighted exactly like the one that chat gets from
+/digest. A push that ignored the reader's settings would be the one place
+the whole configuration silently did not apply.
 
 Both are registered on python-telegram-bot's JobQueue, so they share the
 bot's event loop and no separate scheduler process is needed.
@@ -19,6 +24,7 @@ from telegram.ext import Application, ContextTypes
 
 from src import pipeline
 from src.bot import format as fmt
+from src.bot.preferences import store
 from src.bot.state import state
 from src.config import settings
 from src.llm.digest import build_digest
@@ -29,16 +35,22 @@ _SEND = {"parse_mode": ParseMode.HTML, "disable_web_page_preview": True}
 
 
 async def daily_digest_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    log.info("running scheduled digest")
+    chat_id = settings.telegram_chat_id
+    prefs = store.get(chat_id)
+    log.info("running scheduled digest (depth=%s, %s categories)",
+             prefs.depth, len(prefs.categories))
     try:
-        result = await pipeline.run()
-        state.remember(result.items, result.market, result.stats)
+        result = await pipeline.run(
+            enabled_categories=prefs.categories, depth=prefs.depth
+        )
+        state.remember(chat_id, prefs, result.items, result.market, result.stats)
+
         built = await build_digest(result.items, result.market)
         await ctx.bot.send_message(
-            chat_id=settings.telegram_chat_id, text=fmt.render_digest(built), **_SEND
+            chat_id=chat_id, text=fmt.render_digest(built, prefs.depth), **_SEND
         )
-        # Anything already in the digest should not also fire as an alert
-        # minutes later. The reader has seen it.
+        # Anything in the digest should not also fire as an alert minutes
+        # later. The reader has already seen it.
         for item in result.items:
             state.mark_alerted(item)
         log.info("digest sent: %s stories", len(result.items))
@@ -47,19 +59,24 @@ async def daily_digest_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def alert_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = settings.telegram_chat_id
+    prefs = store.get(chat_id)
     threshold = state.alert_threshold or settings.alert_threshold
     try:
-        result = await pipeline.run(with_market=False)
-        state.remember(result.items, state.last_market, result.stats)
+        result = await pipeline.run(
+            with_market=False,
+            enabled_categories=prefs.categories,
+            depth=prefs.depth,
+        )
 
         fired = 0
         for item in result.items:
             if item.score < threshold:
-                break  # items are sorted, so nothing below here qualifies
+                break  # sorted, so nothing below here qualifies
             if not state.should_alert(item):
                 continue
             await ctx.bot.send_message(
-                chat_id=settings.telegram_chat_id, text=fmt.render_alert(item), **_SEND
+                chat_id=chat_id, text=fmt.render_alert(item), **_SEND
             )
             state.mark_alerted(item)
             fired += 1

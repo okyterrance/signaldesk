@@ -47,15 +47,40 @@ from src.models import FactorScore, NewsItem, ScoreBreakdown
 # ---------------------------------------------------------------------
 
 FACTOR_WEIGHTS: dict[str, float] = {
-    "keyword": 0.222,
-    "recency": 0.222,
-    "source_quality": 0.220,
-    "category": 0.145,
+    "keyword": 0.200,
+    "recency": 0.200,
+    "source_quality": 0.200,
+    "topicality": 0.140,
     "source_count": 0.080,
-    "numeric": 0.056,
-    "asset": 0.056,
+    # numeric + analysis share a fixed 0.130 budget, split by the reader's
+    # depth preference. Keeping the pair's total constant means changing
+    # the preference re-weights style without quietly changing how much
+    # subject matter, freshness or source reputation count.
+    "numeric": 0.065,
+    "analysis": 0.065,
+    "asset": 0.050,
 }
-_TOTAL_WEIGHT = sum(FACTOR_WEIGHTS.values())
+
+STYLE_BUDGET = FACTOR_WEIGHTS["numeric"] + FACTOR_WEIGHTS["analysis"]
+
+# How the style budget splits, per reader preference. The swing is large
+# on purpose: a setting that barely moves the ranking is a setting that
+# was not worth offering.
+DEPTH_SPLITS: dict[str, tuple[float, float]] = {
+    #            numeric              analysis
+    "data":     (STYLE_BUDGET * 0.80, STYLE_BUDGET * 0.20),
+    "balanced": (STYLE_BUDGET * 0.50, STYLE_BUDGET * 0.50),
+    "analysis": (STYLE_BUDGET * 0.20, STYLE_BUDGET * 0.80),
+}
+
+
+def weights_for(depth: str = "balanced") -> dict[str, float]:
+    """The factor table as this reader has it configured."""
+    numeric, analysis = DEPTH_SPLITS.get(depth, DEPTH_SPLITS["balanced"])
+    table = dict(FACTOR_WEIGHTS)
+    table["numeric"] = numeric
+    table["analysis"] = analysis
+    return table
 
 # --- factor 1: keyword tiers -----------------------------------------
 
@@ -204,8 +229,64 @@ _ASSET_T3 = re.compile(r"\b(doge|shib|pepe|altcoin|memecoin)\b", re.IGNORECASE)
 
 
 def numeric_score(item: NewsItem) -> tuple[float, str]:
-    m = _NUMERIC.search(item.title)
-    return (1.0, f"figure '{m.group(0)}'") if m else (0.0, "no figure")
+    """Concrete figures in the headline, and how many.
+
+    Graded rather than binary: "ETF inflows hit $2.1B, up 43% on the week"
+    carries more for a numbers-first reader than a headline with one
+    incidental figure in it.
+    """
+    hits = _NUMERIC.findall(item.title)
+    if not hits:
+        return 0.0, "no figure in headline"
+    if len(hits) == 1:
+        return 0.7, f"one figure ({hits[0]})"
+    return 1.0, f"{len(hits)} figures"
+
+
+# Markers of a piece that explains rather than reports. Two families:
+# framing words that announce analysis, and attribution verbs that mean
+# somebody is being quoted making an argument.
+_ANALYSIS_FRAMING = re.compile(
+    r"\b(why|what|how|explainer|analysis|opinion|outlook|forecast|"
+    r"takeaways?|deep\s?dive|breaking\s?down|inside|behind|"
+    r"could|would|should|whether|if)\b",
+    re.IGNORECASE,
+)
+_ANALYSIS_ATTRIBUTION = re.compile(
+    r"\b(analysts?|strategists?|economists?|researchers?|says?|said|argues?|"
+    r"warns?|warned|expects?|predicts?|sees|flags?|points? to|weighs?)\b",
+    re.IGNORECASE,
+)
+
+
+def analysis_score(item: NewsItem) -> tuple[float, str]:
+    """How much this reads as commentary rather than a bare event report.
+
+    Headline signals carry most of it; a long summary adds a little,
+    because explainers run longer than wire copy. Deliberately not an
+    LLM call — this factor has to stay cheap and reproducible like every
+    other one, and a regex that is right most of the time and inspectable
+    all of the time is the better trade here.
+    """
+    framing = bool(_ANALYSIS_FRAMING.search(item.title))
+    attribution = bool(_ANALYSIS_ATTRIBUTION.search(item.title))
+    long_form = len(item.summary or "") > 220
+
+    score = 0.0
+    reasons: list[str] = []
+    if framing:
+        score += 0.45
+        reasons.append("framing")
+    if attribution:
+        score += 0.40
+        reasons.append("attributed view")
+    if long_form:
+        score += 0.15
+        reasons.append("long summary")
+
+    if not reasons:
+        return 0.0, "straight report"
+    return min(1.0, score), ", ".join(reasons)
 
 
 def asset_score(item: NewsItem) -> tuple[float, str]:
@@ -233,33 +314,49 @@ _FACTOR_FNS = {
     "keyword": keyword_score,
     "recency": recency_score,
     "source_quality": source_quality_score,
-    "category": category_score,
+    "topicality": category_score,
     "source_count": source_count_score,
     "numeric": numeric_score,
+    "analysis": analysis_score,
     "asset": asset_score,
 }
 
 
-def score_item(item: NewsItem, now: datetime | None = None) -> ScoreBreakdown:
-    """Score one item and attach the full factor breakdown."""
+def score_item(
+    item: NewsItem,
+    now: datetime | None = None,
+    weights: dict[str, float] | None = None,
+) -> ScoreBreakdown:
+    """Score one item and attach the full factor breakdown.
+
+    `weights` defaults to the balanced table; pass `weights_for(depth)` to
+    score against a reader's own preference.
+    """
+    table = weights or FACTOR_WEIGHTS
+    total_weight = sum(table.values())
+
     factors: list[FactorScore] = []
-    for name, weight in FACTOR_WEIGHTS.items():
+    for name, weight in table.items():
         fn = _FACTOR_FNS[name]
         raw, reason = fn(item, now) if name == "recency" else fn(item)
         factors.append(FactorScore(name=name, raw=raw, weight=weight, reason=reason))
 
-    total = sum(f.contribution for f in factors) / _TOTAL_WEIGHT
+    total = sum(f.contribution for f in factors) / total_weight
     breakdown = ScoreBreakdown(total=total, factors=factors)
     item.score = total
     item.breakdown = breakdown
     return breakdown
 
 
-def score_all(items: list[NewsItem], now: datetime | None = None) -> list[NewsItem]:
+def score_all(
+    items: list[NewsItem],
+    now: datetime | None = None,
+    weights: dict[str, float] | None = None,
+) -> list[NewsItem]:
     """Score in place and return sorted best-first."""
     now = now or datetime.now(timezone.utc)
     for item in items:
-        score_item(item, now)
+        score_item(item, now, weights)
     items.sort(key=lambda i: -i.score)
     return items
 

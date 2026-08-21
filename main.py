@@ -83,7 +83,7 @@ async def run_once(demo: bool = False) -> None:
 
 
 def run_bot() -> None:
-    from telegram.ext import Application, CommandHandler
+    from telegram.ext import Application, CallbackQueryHandler, CommandHandler
 
     from src.bot import handlers
     from src.bot.scheduler import register_jobs
@@ -96,19 +96,20 @@ def run_bot() -> None:
 
     app = Application.builder().token(settings.telegram_bot_token).build()
 
+    # /why stays registered but is absent from /help: the command surface
+    # is three, while the audit path remains available when a ranking
+    # needs explaining.
     for command, handler in [
         ("start", handlers.start),
         ("help", handlers.start),
         ("top", handlers.top),
-        ("why", handlers.why),
         ("digest", handlers.digest),
-        ("market", handlers.market),
         ("weights", handlers.weights),
-        ("threshold", handlers.threshold),
-        ("status", handlers.status),
+        ("why", handlers.why),
     ]:
         app.add_handler(CommandHandler(command, handler))
 
+    app.add_handler(CallbackQueryHandler(handlers.on_settings_button))
     app.add_error_handler(handlers.on_error)
     register_jobs(app)
 
