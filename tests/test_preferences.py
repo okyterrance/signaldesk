@@ -178,11 +178,17 @@ class TestDepthWeights:
         assert analysis_first[0] is commentary
 
     def test_breakdown_reports_the_reader_s_weights(self):
-        """/why must show the formula that ran, not the default one."""
+        """/why must show the formula that ran, not the default one.
+
+        Reads the split from the table rather than hardcoding it, so
+        retuning the budget does not produce a false failure here.
+        """
+        from src.scoring.weights import DEPTH_SPLITS
+
         item = make_item("ETF inflows hit $2.1B, up 43%")
         breakdown = score_item(item, NOW, weights_for("data"))
         numeric = next(f for f in breakdown.factors if f.name == "numeric")
-        assert numeric.weight == pytest.approx(STYLE_BUDGET * 0.80)
+        assert numeric.weight == pytest.approx(DEPTH_SPLITS["data"][0])
 
 
 class TestPreferenceStore:
@@ -408,3 +414,99 @@ class TestDepthNote:
             "analysis",
         )
         assert depth_note(items, "analysis") == ""
+
+
+# Headlines exactly as they appeared in the live run where Balanced and
+# Analysis returned an identical top five. Kept verbatim: a fixture of
+# invented headlines is where the earlier version of this feature looked
+# like it worked.
+LIVE_BATCH = [
+    ("Zcash jumps 48% to over $800 as Grayscale spot ETF push adds to buzz", "CoinDesk", 4),
+    ("How a Treasury buyback tweak helped bitcoin surge 25% to nearly $80,000", "CoinDesk", 5),
+    ("BounceBit to sunset blockchain, migrate to BNB Chain after $3 million exploit", "The Block", 17),
+    ("Bitcoin surge points to liquidity-driven momentum shift as ETF flows rebound: Bernstein", "The Block", 23),
+    ("Qatar cuts state spending at home and abroad as war shrinks economy", "FT Markets", 6),
+    ("Trump to allow import of 300,000 metric tons of ground beef without tariff", "CNBC", 11),
+    ("Bitcoin ETFs Just Had Their Biggest Day Since May, BlackRock Took 83% of It", "Decrypt", 18),
+    ("US hits Canadian goods with 50% tariffs after trade talks fail", "Channel News Asia", 6),
+    ("Strategy sits on $1.4 billion profit on bitcoin holdings as price surges", "CoinDesk", 16),
+    ("AI adoption in crypto crime rose 40% over the past year, TRM Labs says", "The Block", 8),
+    ("Upbit trading volume spikes 273% as South Korean investors re-enter crypto", "The Block", 12),
+    ("Goldman says hedge funds suffered worst underperformance vs S&P 500 in July", "CNBC", 19),
+]
+
+
+def _live_items():
+    return [
+        NewsItem(title=t, url=f"https://example.com/{i}", source=s,
+                 published_at=NOW - timedelta(hours=h))
+        for i, (t, s, h) in enumerate(LIVE_BATCH)
+    ]
+
+
+class TestFactorsDiscriminate:
+    """A factor everything scores the same on cannot reorder anything."""
+
+    def test_numeric_spreads_across_a_real_batch(self):
+        """It used to average 0.72 with one zero in twelve.
+
+        Crypto headlines nearly all carry a figure, so a generous single
+        -figure band put almost every story in the same place and the
+        Numbers setting had nothing to promote.
+        """
+        import statistics
+
+        scores = [numeric_score(i)[0] for i in _live_items()]
+        assert statistics.mean(scores) < 0.55
+        assert statistics.pstdev(scores) > 0.15
+        assert len(set(scores)) >= 3
+
+    def test_an_index_name_is_not_market_data(self):
+        """A bare 3-digit run counted "S&P 500" as a figure."""
+        assert numeric_score(make_item("Hedge funds trail the S&P 500"))[0] == 0.0
+        assert numeric_score(make_item("Inflows reached $2.1 billion"))[0] > 0
+
+    def test_one_incidental_figure_ranks_below_two(self):
+        one = numeric_score(make_item("Protocol drained in $3 million exploit"))[0]
+        two = numeric_score(make_item("Zcash jumps 48% to over $800"))[0]
+        assert 0 < one < two
+
+
+class TestDepthReordersRealHeadlines:
+    """The end-to-end claim, on the batch that exposed the failure."""
+
+    def _top(self, depth, n=5):
+        return [
+            i.title for i in score_all(_live_items(), NOW, weights_for(depth))[:n]
+        ]
+
+    def test_the_extremes_produce_different_leads(self):
+        assert self._top("data")[0] != self._top("analysis")[0]
+
+    def test_numbers_leads_with_the_figure_dense_story(self):
+        assert "Zcash jumps 48%" in self._top("data")[0]
+
+    def test_analysis_promotes_the_explainer(self):
+        assert "How a Treasury buyback" in self._top("analysis")[0]
+
+    def test_an_analyst_note_climbs_under_analysis(self):
+        """'<claim>: Bernstein' is a view, and should rank higher as one.
+
+        Asserts the rank moves, not that it reaches the top five: this
+        item is 23 hours old, and recency is nearly three times the
+        analysis weight, so a stale note should not out-rank fresh
+        reporting no matter what the reader prefers.
+        """
+        def rank(depth):
+            titles = self._top(depth, n=len(LIVE_BATCH))
+            return next(i for i, t in enumerate(titles) if "Bernstein" in t)
+
+        assert rank("analysis") < rank("data")
+
+    def test_top_five_differs_between_every_setting(self):
+        data, balanced, analysis = (
+            self._top(d) for d in ("data", "balanced", "analysis")
+        )
+        assert data != analysis
+        assert balanced != analysis
+        assert data != balanced

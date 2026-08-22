@@ -104,16 +104,16 @@ Pooled together, a Fed decision loses on the asset factor by construction
 
 | factor | weight | what it measures |
 |---|---|---|
-| `keyword` | 0.200 | 4 tiers, highest hit wins. `fed`/`cpi`/`hack` → 1.0, `btc`/`defi` → 0.25 |
-| `recency` | 0.200 | linear decay to zero across 24h |
-| `source_quality` | 0.200 | per-outlet, FT/Bloomberg/The Block 1.0 → unrated 0.60 |
-| `topicality` | 0.140 | topical gate from feed tags; untagged scores neutral, not zero |
-| `source_count` | 0.080 | corroboration across outlets, saturating at 5 |
-| `numeric` | 0.065\* | how many concrete figures the headline carries |
-| `analysis` | 0.065\* | how much it reads as commentary rather than a bare report |
-| `asset` | 0.050 | BTC/ETH 1.0, large alts 0.7, memecoins 0.3 |
+| `keyword` | 0.185 | 4 tiers, highest hit wins. `fed`/`cpi`/`hack` → 1.0, `btc`/`defi` → 0.25 |
+| `recency` | 0.185 | linear decay to zero across 24h |
+| `source_quality` | 0.185 | per-outlet, FT/Bloomberg/The Block 1.0 → unrated 0.60 |
+| `topicality` | 0.130 | topical gate from feed tags; untagged scores neutral, not zero |
+| `source_count` | 0.075 | corroboration across outlets, saturating at 5 |
+| `numeric` | 0.100\* | how many concrete figures the headline carries |
+| `analysis` | 0.100\* | how much it reads as commentary rather than a bare report |
+| `asset` | 0.040 | BTC/ETH 1.0, large alts 0.7, memecoins 0.3 |
 
-\* `numeric` and `analysis` share a fixed 0.130 budget that the reader
+\* `numeric` and `analysis` share a fixed 0.200 budget that the reader
 splits with `/weights` — see **Your settings** below. Keeping the pair's
 total constant means changing the preference re-weights *style* without
 quietly changing how much subject matter, freshness or source reputation
@@ -200,7 +200,7 @@ bet a demo on.
 ### Tests
 
 ```bash
-python -m pytest tests/ -q      # 98 tests, no network, no API key
+python -m pytest tests/ -q      # 122 tests, no network, no API key
 ```
 
 The whole ranking path is deterministic, so a bad ranking is reproducible

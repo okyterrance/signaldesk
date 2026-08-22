@@ -47,30 +47,36 @@ from src.models import FactorScore, NewsItem, ScoreBreakdown
 # ---------------------------------------------------------------------
 
 FACTOR_WEIGHTS: dict[str, float] = {
-    "keyword": 0.200,
-    "recency": 0.200,
-    "source_quality": 0.200,
-    "topicality": 0.140,
-    "source_count": 0.080,
-    # numeric + analysis share a fixed 0.130 budget, split by the reader's
-    # depth preference. Keeping the pair's total constant means changing
-    # the preference re-weights style without quietly changing how much
+    "keyword": 0.185,
+    "recency": 0.185,
+    "source_quality": 0.185,
+    "topicality": 0.130,
+    "source_count": 0.075,
+    # numeric + analysis share a fixed budget, split by the reader's depth
+    # preference. Keeping the pair's total constant means changing the
+    # preference re-weights style without quietly changing how much
     # subject matter, freshness or source reputation count.
-    "numeric": 0.065,
-    "analysis": 0.065,
-    "asset": 0.050,
+    #
+    # The budget is a fifth of the formula, raised from 0.130 after
+    # measuring that the smaller share could not move the top of a real
+    # ranking: adjacent items sat 0.04-0.06 apart while the largest swing
+    # the pair could produce was 0.035. An explicit reader preference that
+    # cannot reorder anything is not a preference.
+    "numeric": 0.100,
+    "analysis": 0.100,
+    "asset": 0.040,
 }
 
 STYLE_BUDGET = FACTOR_WEIGHTS["numeric"] + FACTOR_WEIGHTS["analysis"]
 
-# How the style budget splits, per reader preference. The swing is large
-# on purpose: a setting that barely moves the ranking is a setting that
-# was not worth offering.
+# How the style budget splits, per reader preference. The extremes are
+# lopsided on purpose: a setting that barely moves the ranking is a
+# setting that was not worth offering.
 DEPTH_SPLITS: dict[str, tuple[float, float]] = {
     #            numeric              analysis
-    "data":     (STYLE_BUDGET * 0.80, STYLE_BUDGET * 0.20),
+    "data":     (STYLE_BUDGET * 0.85, STYLE_BUDGET * 0.15),
     "balanced": (STYLE_BUDGET * 0.50, STYLE_BUDGET * 0.50),
-    "analysis": (STYLE_BUDGET * 0.20, STYLE_BUDGET * 0.80),
+    "analysis": (STYLE_BUDGET * 0.15, STYLE_BUDGET * 0.85),
 }
 
 
@@ -222,7 +228,17 @@ def source_count_score(item: NewsItem) -> tuple[float, str]:
 
 # --- factors 6 & 7: specificity tie-breakers -------------------------
 
-_NUMERIC = re.compile(r"\$\d|\d+%|\d{3,}")
+# A figure, not merely a digit. A bare 3-digit run matched "S&P 500" and
+# similar names, counting an index label as market data. Only currency
+# amounts, percentages, separated thousands, and unit-suffixed magnitudes
+# qualify.
+_NUMERIC = re.compile(
+    r"\$[\d,.]+(?:\s*(?:bn|billion|m|million|k|thousand|trillion))?"
+    r"|[\d,.]+\s*%"
+    r"|\b\d{1,3}(?:,\d{3})+\b"
+    r"|\b[\d,.]+\s*(?:bn|billion|million|trillion)\b",
+    re.IGNORECASE,
+)
 _ASSET_T1 = re.compile(r"\b(btc|bitcoin|eth|ethereum)\b", re.IGNORECASE)
 _ASSET_T2 = re.compile(r"\b(sol|solana|xrp|ripple|bnb|sui|hyperliquid)\b", re.IGNORECASE)
 _ASSET_T3 = re.compile(r"\b(doge|shib|pepe|altcoin|memecoin)\b", re.IGNORECASE)
@@ -238,8 +254,15 @@ def numeric_score(item: NewsItem) -> tuple[float, str]:
     hits = _NUMERIC.findall(item.title)
     if not hits:
         return 0.0, "no figure in headline"
+    # A single incidental figure used to score 0.7, which put almost every
+    # crypto headline in the same band -- measured over a live batch the
+    # factor had mean 0.72 with one zero in twelve, so it could not
+    # separate anything and the Numbers setting had nothing to promote.
+    # One figure is now clearly below two.
     if len(hits) == 1:
-        return 0.7, f"one figure ({hits[0]})"
+        return 0.35, f"one figure ({hits[0].strip()})"
+    if len(hits) == 2:
+        return 0.75, "two figures"
     return 1.0, f"{len(hits)} figures"
 
 
