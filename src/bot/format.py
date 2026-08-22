@@ -63,8 +63,16 @@ STRONG_AT = 0.65
 NOTABLE_AT = 0.45
 
 
+SCORE_DP = 2   # decimal places the views print
+
+
 def signal_label(score: float) -> str:
     """Plain-language band for a score.
+
+    Banded on the *rounded* score, the one the reader can see. Banding the
+    raw value let 0.649 print as "Notable 0.65" while the boundary is
+    0.65, so the label appeared to contradict the number beside it. The
+    figure on screen and the word next to it must always agree.
 
     A bare "0.66" is an internal quantity that means nothing to a reader —
     the person who built this bot had to ask what it was. The number still
@@ -75,9 +83,10 @@ def signal_label(score: float) -> str:
     the lead, and a label that reads as a verdict on the story's worth
     would be both discouraging and wrong.
     """
-    if score >= STRONG_AT:
+    shown = round(score, SCORE_DP)
+    if shown >= STRONG_AT:
         return "Strong"
-    if score >= NOTABLE_AT:
+    if shown >= NOTABLE_AT:
         return "Notable"
     return "Context"
 

@@ -149,7 +149,9 @@ readers of the same bot hold different settings.
 
 **Subjects.** Five categories, single-label and first-match-wins in
 priority order: 🔓 Security & risk, ⚖️ Regulation & policy, 🏦
-Institutional flows, 📉 Macro & rates, ⚙️ Protocol & tech. An exploit at
+Institutional flows, 📉 Macro & rates, ⚙️ Protocol & tech. Trade sanctions
+and tariffs sit under Macro, not Regulation: they reprice risk broadly
+rather than being rule-making a crypto desk can act on. An exploit at
 an ETF custodian is a *security* story — the fact that moves a position
 decides the label, so one story cannot occupy several of your slots.
 Switching a subject off is a hard filter, not a penalty.
@@ -200,7 +202,7 @@ bet a demo on.
 ### Tests
 
 ```bash
-python -m pytest tests/ -q      # 122 tests, no network, no API key
+python -m pytest tests/ -q      # 132 tests, no network, no API key
 ```
 
 The whole ranking path is deterministic, so a bad ranking is reproducible

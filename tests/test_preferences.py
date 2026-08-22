@@ -51,7 +51,9 @@ class TestCategories:
             ("Curve Finance exploited for $62 million", "security"),
             ("MANTRA halts chain after exploit", "security"),
             ("SEC approves spot Solana ETF applications", "regulation"),
-            ("Trump to allow beef import without tariff", "regulation"),
+            # Trade policy is geopolitics, not crypto rule-making.
+            ("Trump to allow beef import without tariff", "macro"),
+            ("OFAC sanctions a crypto mixer over laundering", "regulation"),
             # An institutional product change, not a regulator's decision.
             ("BlackRock files for staking on its Ethereum ETF", "flows"),
             ("Strategy sits on $1.4 billion profit on bitcoin holdings", "flows"),
@@ -510,3 +512,57 @@ class TestDepthReordersRealHeadlines:
         assert data != analysis
         assert balanced != analysis
         assert data != balanced
+
+
+class TestRegulationVersusGeopolitics:
+    """Two categories that were doing each other's job."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Both surfaced under Regulation in a live run. A reader who
+            # opens Regulation wants SEC news, not Iran and India.
+            "Ahead of tough new U.S. sanctions, Iran criticizes extraterritorial sovereignty",
+            "India's Foreign Minister to Visit Russia Amid US Tariff Threat",
+            "US hits Canadian goods with 50% tariffs after trade talks fail",
+        ],
+    )
+    def test_trade_and_geopolitics_are_macro(self, title):
+        assert classify(make_item(title)) == "macro"
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            "SEC approves spot Solana ETF applications",
+            "Coinbase sued over staking disclosures",
+            "Washington pushes Clarity Act as SEC writes new rules",
+            # An OFAC designation is enforcement against a named entity,
+            # not trade policy, so it stays put.
+            "OFAC sanctions a crypto mixer over laundering",
+        ],
+    )
+    def test_financial_rulemaking_stays_regulation(self, title):
+        assert classify(make_item(title)) == "regulation"
+
+
+class TestLabelMatchesTheNumberShown:
+    """The word and the figure beside it must never disagree."""
+
+    def test_a_score_that_rounds_up_to_the_boundary_reads_as_strong(self):
+        """0.649 printed as "Notable 0.65" while the boundary is 0.65."""
+        from src.bot.format import STRONG_AT, signal_label
+
+        assert signal_label(0.649) == "Strong"
+        assert f"{0.649:.2f}" == f"{STRONG_AT:.2f}"
+
+    def test_bands_follow_the_rounded_value_everywhere(self):
+        from src.bot.format import NOTABLE_AT, STRONG_AT, signal_label
+
+        for raw in (0.6449, 0.645, 0.6551, 0.4449, 0.445, 0.9, 0.0):
+            shown = round(raw, 2)
+            expected = (
+                "Strong" if shown >= STRONG_AT
+                else "Notable" if shown >= NOTABLE_AT
+                else "Context"
+            )
+            assert signal_label(raw) == expected, raw

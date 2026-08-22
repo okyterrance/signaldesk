@@ -38,12 +38,19 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
     (
         "regulation",
         "Regulation & policy",
-        "SEC, lawsuits, legislation, sanctions, tariffs",
+        "SEC, lawsuits, legislation, licensing, enforcement",
+        # Trade sanctions and tariffs used to live here, and it made the
+        # category useless: a reader opening Regulation for SEC news got
+        # "Iran criticises US sanctions" and "India's foreign minister to
+        # visit Russia amid US tariff threat". Those move risk assets
+        # broadly, which is macro; this category is financial and crypto
+        # rule-making. OFAC stays, because an OFAC designation is an
+        # enforcement action against a named entity.
         re.compile(
             r"\b(sec|cftc|regulat\w+|lawsuit|sued|sues|court|judge|ruling|"
-            r"settlement|subpoena|enforcement|legislat\w+|bill|act|congress|"
-            r"senate|sanction\w*|tariff\w*|ban|banned|licence|license|"
-            r"compliance|mica|ofac|probe|investigat\w+)\b",
+            r"settlement|subpoena|enforcement|legislat\w+|bill|congress|"
+            r"senate|ban|banned|licence|license|licensing|"
+            r"compliance|mica|ofac|probe|investigat\w+|clarity act)\b",
             re.IGNORECASE,
         ),
     ),
@@ -96,6 +103,10 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
             # economy" also matched nothing.
             r"econom\w+|fiscal|deficit\w*|budget|state spending|"
             r"war|conflict|ceasefire|embargo|output|supply chain|"
+            # Trade policy, moved here from regulation: sanctions and
+            # tariffs are geopolitics that reprices risk, not rule-making
+            # a crypto desk can act on.
+            r"sanction\w*|tariff\w*|trade (?:talks?|war|deal)|"
             # Broad-market conditions belong here too. Without these, a
             # story about hedge funds and the S&P 500 matches nothing at
             # all once it stops (correctly) matching crypto flows.
