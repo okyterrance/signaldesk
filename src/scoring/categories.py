@@ -81,10 +81,21 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
         "Macro & rates",
         "Fed, CPI, central banks, yields, broad markets",
         re.compile(
+            # `treasur\w+` belongs here, and its absence was a regression:
+            # removing the bare form from flows left it in no category at
+            # all, so "How a Treasury buyback tweak helped bitcoin surge"
+            # came back unclassified. The earlier test passed only because
+            # its fixture also said "yields" and "inflation".
             r"\b(fed|fomc|federal reserve|ecb|boj|central bank\w*|cpi|ppi|pce|"
+            r"treasur\w+|"
             r"inflation|deflation|rate|rates|yield\w*|bond\w*|dxy|dollar|"
             r"currency|gdp|payroll\w*|unemployment|recession|stimulus|"
             r"qe|liquidity|jobs report|"
+            # Fiscal and geopolitical conditions move the same tape.
+            # Without these, "Qatar cuts state spending as war shrinks
+            # economy" also matched nothing.
+            r"econom\w+|fiscal|deficit\w*|budget|state spending|"
+            r"war|conflict|ceasefire|embargo|output|supply chain|"
             # Broad-market conditions belong here too. Without these, a
             # story about hedge funds and the S&P 500 matches nothing at
             # all once it stops (correctly) matching crypto flows.

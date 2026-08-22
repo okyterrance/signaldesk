@@ -249,7 +249,8 @@ def numeric_score(item: NewsItem) -> tuple[float, str]:
 _ANALYSIS_FRAMING = re.compile(
     r"\b(why|what|how|explainer|analysis|opinion|outlook|forecast|"
     r"takeaways?|deep\s?dive|breaking\s?down|inside|behind|"
-    r"could|would|should|whether|if)\b",
+    r"could|would|should|whether|if|"
+    r"signals?|suggests?|means|case for|risk of|set to|poised)\b",
     re.IGNORECASE,
 )
 _ANALYSIS_ATTRIBUTION = re.compile(
@@ -257,6 +258,11 @@ _ANALYSIS_ATTRIBUTION = re.compile(
     r"warns?|warned|expects?|predicts?|sees|flags?|points? to|weighs?)\b",
     re.IGNORECASE,
 )
+# The trade-press convention for an analyst note: "<claim>: Bernstein".
+# A trailing attribution after a colon is one of the strongest signals
+# that a headline carries a view rather than an event, and the word-based
+# patterns above miss it entirely when the claim is phrased as a report.
+_ANALYSIS_COLON_SOURCE = re.compile(r":\s*[A-Z][\w.&' -]{2,30}\s*$")
 
 
 def analysis_score(item: NewsItem) -> tuple[float, str]:
@@ -269,7 +275,10 @@ def analysis_score(item: NewsItem) -> tuple[float, str]:
     all of the time is the better trade here.
     """
     framing = bool(_ANALYSIS_FRAMING.search(item.title))
-    attribution = bool(_ANALYSIS_ATTRIBUTION.search(item.title))
+    attribution = bool(
+        _ANALYSIS_ATTRIBUTION.search(item.title)
+        or _ANALYSIS_COLON_SOURCE.search(item.title)
+    )
     long_form = len(item.summary or "") > 220
 
     score = 0.0

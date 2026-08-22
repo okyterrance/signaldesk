@@ -93,8 +93,11 @@ def _outlets(item: NewsItem) -> str:
 
 
 def _badge(item: NewsItem) -> str:
+    # An uncategorised item used to render with no badge at all, leaving a
+    # ragged gap that read as a rendering fault rather than as "nothing
+    # matched". A neutral label is honest and keeps the shape uniform.
     if not item.category:
-        return ""
+        return "📰 General"
     emoji = CATEGORY_EMOJI.get(item.category, "")
     label = CATEGORY_LABELS.get(item.category, item.category).split(" &")[0]
     return f"{emoji} {esc(label)}"
@@ -159,6 +162,36 @@ def scope_note(prefs, stats: dict | None) -> str:
     return note + ". /weights to widen.</i>"
 
 
+def depth_note(items: list[NewsItem], depth: str) -> str:
+    """Say when a depth setting had almost nothing to act on.
+
+    Balanced and Analysis returned an identical order on a real feed, and
+    that looks like a setting that does not work. It was working: only two
+    of eight headlines that day carried any analyst framing, so there was
+    nothing to promote. Same failure as a narrowed category — a correct
+    no-op that the reader reads as a fault.
+    """
+    if depth == "balanced" or not items:
+        return ""
+
+    factor = "analysis" if depth == "analysis" else "numeric"
+    carried = sum(
+        1
+        for i in items
+        if i.breakdown
+        and any(f.name == factor and f.raw > 0 for f in i.breakdown.factors)
+    )
+    if carried >= max(1, len(items) // 2):
+        return ""
+
+    what = "analyst framing" if depth == "analysis" else "hard figures"
+    setting = "Analysis" if depth == "analysis" else "Numbers"
+    return (
+        f"<i>Only {carried} of {len(items)} stories carry {what} today, "
+        f"so {setting} had little to reorder.</i>"
+    )
+
+
 # --- market -----------------------------------------------------------
 
 def market_line(market: MarketSnapshot) -> str:
@@ -207,9 +240,9 @@ def render_top(
         lines.append("")
 
     lines += [RULE, ""]
-    scope = scope_note(prefs, stats)
-    if scope:
-        lines += [scope, ""]
+    for note in (scope_note(prefs, stats), depth_note(items, depth)):
+        if note:
+            lines += [note, ""]
     lines += [LEGEND, "", "<i>/digest for the written briefing</i>"]
     return _clip("\n".join(lines))
 

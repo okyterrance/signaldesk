@@ -314,3 +314,97 @@ class TestScopeNote:
         from src.bot.format import scope_note
 
         assert scope_note(None, {}) == ""
+
+
+class TestCoverageRegressions:
+    """Headlines that fell through the categories on a live run."""
+
+    @pytest.mark.parametrize(
+        "title",
+        [
+            # Removing the bare `treasur\w+` from flows left it in no
+            # category at all. The original test passed only because its
+            # fixture also said "yields" and "inflation".
+            "How a Treasury buyback tweak helped bitcoin surge 25% to nearly $80,000",
+            "Qatar cuts state spending at home and abroad as war shrinks economy",
+        ],
+    )
+    def test_macro_covers_fiscal_and_geopolitical(self, title):
+        assert classify(make_item(title)) == "macro"
+
+    def test_nothing_in_a_live_batch_goes_unclassified(self):
+        """Every headline from the run that surfaced the gap now lands."""
+        live = [
+            "Zcash jumps 48% to over $800 as Grayscale spot ETF push adds to buzz",
+            "How a Treasury buyback tweak helped bitcoin surge 25% to $80,000",
+            "Trump to allow import of 300,000 metric tons of ground beef without tariff",
+            "Bitcoin ETFs Just Had Their Biggest Day Since May",
+            "US hits Canadian goods with 50% tariffs after trade talks fail",
+            "BounceBit to sunset blockchain, migrate to BNB Chain after $3m exploit",
+            "Qatar cuts state spending at home and abroad as war shrinks economy",
+        ]
+        assert all(classify(make_item(t)) is not None for t in live)
+
+    def test_colon_attribution_reads_as_analysis(self):
+        """'<claim>: Bernstein' is the trade-press analyst-note convention."""
+        note = make_item("Bitcoin momentum shift is liquidity-driven: Bernstein")
+        report = make_item("Bitcoin ETFs post record inflows")
+        assert analysis_score(note)[0] > 0
+        assert analysis_score(report)[0] == 0
+
+    def test_colon_does_not_fire_on_a_mid_headline_clause(self):
+        item = make_item("SEC ruling: what it changes for custody, explained by counsel")
+        # framing words carry this one, but the colon rule must not be the
+        # reason -- it only matches an attribution at the very end.
+        from src.scoring.weights import _ANALYSIS_COLON_SOURCE
+
+        assert not _ANALYSIS_COLON_SOURCE.search(item.title)
+
+
+class TestDepthNote:
+    """A depth setting with nothing to act on must say so."""
+
+    def _scored(self, titles, depth):
+        from src.scoring.weights import score_all, weights_for
+
+        items = [make_item(t) for t in titles]
+        return score_all(items, NOW, weights_for(depth))
+
+    def test_silent_on_balanced(self):
+        from src.bot.format import depth_note
+
+        assert depth_note(self._scored(["Fed holds rates"], "balanced"), "balanced") == ""
+
+    def test_warns_when_almost_nothing_carries_the_signal(self):
+        """Balanced and Analysis returned an identical order on a real feed.
+
+        The setting was working; only two of eight headlines carried any
+        analyst framing, so there was nothing to promote.
+        """
+        from src.bot.format import depth_note
+
+        items = self._scored(
+            [
+                "Bitcoin ETFs post record inflows",
+                "SEC approves spot Solana ETF",
+                "BounceBit migrates to BNB Chain after exploit",
+                "US hits Canadian goods with 50% tariffs",
+            ],
+            "analysis",
+        )
+        note = depth_note(items, "analysis")
+        assert "Analysis had little to reorder" in note
+
+    def test_silent_when_the_signal_is_well_represented(self):
+        from src.bot.format import depth_note
+
+        items = self._scored(
+            [
+                "Why analysts expect ETF flows to reverse",
+                "What the Treasury buyback means for risk assets",
+                "Strategists warn on liquidity: Bernstein",
+                "Bitcoin ETFs post record inflows",
+            ],
+            "analysis",
+        )
+        assert depth_note(items, "analysis") == ""
