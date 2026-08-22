@@ -1,0 +1,699 @@
+<title>SignalDesk 排序引擎</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #F4F6F8;
+    --surface: #FFFFFF;
+    --sunk: #EDF1F3;
+    --ink: #0F1820;
+    --muted: #5A6672;
+    --faint: #8593A0;
+    --line: #DCE3E8;
+    --rail: #C3CFD6;
+    --accent: #0E5B69;
+    --accent-soft: #E2EFF1;
+    --signal: #A64F09;
+    --signal-soft: #FBEDDF;
+    --ok: #2F6B4F;
+    --warn: #8A5A00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0B1216;
+      --surface: #121C21;
+      --sunk: #0E171C;
+      --ink: #E4EDF1;
+      --muted: #93A3AD;
+      --faint: #6C7C87;
+      --line: #22323A;
+      --rail: #2E434D;
+      --accent: #55C2D4;
+      --accent-soft: #10333B;
+      --signal: #E8973F;
+      --signal-soft: #33240F;
+      --ok: #6BBF95;
+      --warn: #D9A544;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0B1216;
+    --surface: #121C21;
+    --sunk: #0E171C;
+    --ink: #E4EDF1;
+    --muted: #93A3AD;
+    --faint: #6C7C87;
+    --line: #22323A;
+    --rail: #2E434D;
+    --accent: #55C2D4;
+    --accent-soft: #10333B;
+    --signal: #E8973F;
+    --signal-soft: #33240F;
+    --ok: #6BBF95;
+    --warn: #D9A544;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    margin: 0;
+    padding: 0 20px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+
+  h1, h2, h3 {
+    font-family: "Archivo", system-ui, sans-serif;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 { font-size: clamp(2rem, 5vw, 2.9rem); font-weight: 700; letter-spacing: -0.025em; line-height: 1.12; }
+  h2 { font-size: 1.45rem; font-weight: 700; letter-spacing: -0.015em; }
+  h3 { font-size: 1.02rem; font-weight: 600; letter-spacing: -0.005em; }
+  p { margin: 0 0 0.85em; max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+
+  code, .mono, table, .num {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-size: 0.88em;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 0.08em 0.34em;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* --- masthead --- */
+  header { padding: 72px 0 40px; border-bottom: 2px solid var(--ink); }
+  header p.lede { font-size: 1.12rem; color: var(--muted); margin-top: 18px; }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    margin-top: 34px;
+  }
+  .fact { background: var(--surface); padding: 14px 16px; }
+  .fact .n {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 1.5rem; font-weight: 600; color: var(--signal);
+    line-height: 1.1; font-variant-numeric: tabular-nums;
+  }
+  .fact .l {
+    font-size: 0.76rem; color: var(--muted); margin-top: 4px;
+    letter-spacing: 0.02em;
+  }
+
+  section { padding-top: 56px; }
+  section > h2 { margin-bottom: 6px; }
+  section > .eyebrow { display: block; margin-bottom: 10px; }
+  .sub { color: var(--muted); margin-bottom: 26px; max-width: 68ch; }
+
+  /* --- the split --- */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  @media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+  .half {
+    background: var(--surface); border: 1px solid var(--line);
+    border-top: 3px solid var(--accent); padding: 20px 22px;
+  }
+  .half.model { border-top-color: var(--signal); }
+  .half h3 { margin-bottom: 8px; }
+  .half p { font-size: 0.94rem; color: var(--muted); }
+  .half .role {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.7rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; display: block; margin-bottom: 6px;
+  }
+  .half.model .role { color: var(--signal); }
+
+  /* --- pipeline spine --- */
+  .spine { margin-top: 8px; }
+  .stage {
+    display: grid; grid-template-columns: 62px 1fr; gap: 0;
+    position: relative;
+  }
+  .stage .rail {
+    position: relative;
+    display: flex; justify-content: center;
+  }
+  .stage .rail::before {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 2px;
+    background: var(--rail);
+  }
+  .stage:first-child .rail::before { top: 22px; }
+  .stage:last-child .rail::before { bottom: calc(100% - 22px); }
+  .stage .dot {
+    position: relative; z-index: 1; margin-top: 12px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--rail);
+    display: grid; place-items: center;
+    font-family: "IBM Plex Mono", monospace; font-size: 0.8rem;
+    font-weight: 600; color: var(--muted);
+  }
+  .stage.key .dot { border-color: var(--accent); color: var(--accent); }
+  .stage .body { padding: 12px 0 26px 18px; }
+  .stage h3 { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .stage h3 .where {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+    color: var(--faint); font-weight: 400;
+  }
+  .stage p { font-size: 0.94rem; color: var(--muted); margin: 6px 0 0; }
+  .flowline {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.78rem;
+    color: var(--ink); background: var(--sunk);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 5px 9px; display: inline-block; margin-top: 10px;
+  }
+  .flowline b { color: var(--signal); font-weight: 600; }
+
+  /* --- tables --- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: 0.88rem; min-width: 520px; }
+  th, td { padding: 9px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  thead th {
+    font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600; background: var(--sunk);
+    border-bottom: 1px solid var(--rail);
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.w { color: var(--signal); font-weight: 600; text-align: right; width: 1%; white-space: nowrap; }
+  td.name { font-weight: 500; white-space: nowrap; }
+  td.desc { font-family: "IBM Plex Sans", sans-serif; color: var(--muted); }
+  tr.dial td.name, tr.dial td.w { color: var(--accent); }
+  tr.dial td.w { color: var(--accent); }
+
+  /* --- callout --- */
+  .note {
+    border-left: 3px solid var(--signal); background: var(--signal-soft);
+    padding: 15px 18px; margin-top: 20px;
+  }
+  .note p { font-size: 0.92rem; margin: 0; }
+  .note .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.68rem;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--signal); font-weight: 600; display: block; margin-bottom: 5px;
+  }
+
+  /* --- dials --- */
+  .dials { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 700px) { .dials { grid-template-columns: 1fr; } }
+  .dial {
+    background: var(--surface); border: 1px solid var(--line); padding: 20px 22px;
+  }
+  .cats { list-style: none; padding: 0; margin: 12px 0 0; }
+  .cats li {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 7px 0; border-bottom: 1px dashed var(--line); font-size: 0.9rem;
+  }
+  .cats li:last-child { border-bottom: none; }
+  .cats .cn { font-weight: 600; white-space: nowrap; }
+  .cats .cd { color: var(--muted); font-size: 0.84rem; }
+
+  .depths { margin-top: 12px; }
+  .depthrow {
+    display: grid; grid-template-columns: 88px 1fr; gap: 12px;
+    align-items: baseline; padding: 8px 0; border-bottom: 1px dashed var(--line);
+  }
+  .depthrow:last-child { border-bottom: none; }
+  .depthrow .dn {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.82rem;
+    font-weight: 600; color: var(--accent);
+  }
+  .depthrow .dv { font-size: 0.85rem; color: var(--muted); }
+  .depthrow .dv b { color: var(--signal); font-family: "IBM Plex Mono", monospace; }
+
+  /* --- worked example --- */
+  .trace { background: var(--surface); border: 1px solid var(--line); margin-top: 8px; }
+  .trace .head {
+    padding: 16px 20px; border-bottom: 1px solid var(--line); background: var(--sunk);
+  }
+  .trace .head .hl { font-weight: 600; font-size: 0.98rem; }
+  .trace .head .meta {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.76rem;
+    color: var(--muted); margin-top: 5px;
+  }
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li {
+    padding: 12px 20px; border-bottom: 1px solid var(--line);
+    display: grid; grid-template-columns: 108px 1fr; gap: 14px; align-items: baseline;
+    font-size: 0.9rem;
+  }
+  .steps li:last-child { border-bottom: none; }
+  .steps .sn {
+    font-family: "IBM Plex Mono", monospace; font-size: 0.72rem;
+    letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint);
+  }
+  .steps .sv { color: var(--muted); }
+  .steps .sv b { color: var(--ink); font-weight: 600; }
+  .total {
+    padding: 14px 20px; background: var(--accent-soft);
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .total .tl { font-size: 0.76rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+  .total .tv { font-size: 1.35rem; font-weight: 600; color: var(--accent); }
+
+  /* --- schedule --- */
+  .clock { display: grid; gap: 14px; }
+  .slot {
+    display: grid; grid-template-columns: 108px 1fr; gap: 16px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent); padding: 14px 18px; align-items: baseline;
+  }
+  @media (max-width: 560px) { .slot { grid-template-columns: 1fr; gap: 4px; } }
+  .slot .when {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600;
+    color: var(--accent); font-size: 0.86rem;
+  }
+  .slot .what { font-size: 0.92rem; color: var(--muted); }
+  .slot .what b { color: var(--ink); font-weight: 600; }
+
+  /* --- limits --- */
+  .limits { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  .limits li {
+    background: var(--surface); border: 1px solid var(--line);
+    padding: 14px 18px; font-size: 0.92rem; color: var(--muted);
+  }
+  .limits li b { color: var(--ink); display: block; margin-bottom: 3px; font-weight: 600; }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--line);
+    font-size: 0.82rem; color: var(--faint);
+  }
+</style>
+
+<div class="wrap">
+
+<header>
+  <span class="eyebrow">SignalDesk · 運作原理</span>
+  <h1>128 則新聞進去,18 則出來。<br>這是中間發生的事。</h1>
+  <p class="lede">
+    一個 Telegram bot,讀 12 個免費新聞源,用一套八因子加權公式替每則新聞打分,
+    然後讓語言模型把選出來的寫成簡報。重點不是「AI 幫你摘要新聞」——
+    重點是<strong>它憑什麼選這幾則,而且你可以查</strong>。
+  </p>
+
+  <div class="facts">
+    <div class="fact"><div class="n">12</div><div class="l">新聞源,零 API key</div></div>
+    <div class="fact"><div class="n">8</div><div class="l">計分因子</div></div>
+    <div class="fact"><div class="n">5</div><div class="l">可選類別</div></div>
+    <div class="fact"><div class="n">18</div><div class="l">每次選出</div></div>
+    <div class="fact"><div class="n">147</div><div class="l">離線測試</div></div>
+  </div>
+</header>
+
+<section>
+  <span class="eyebrow">核心決定</span>
+  <h2>演算法決定「選什麼」,模型只負責「怎麼寫」</h2>
+  <p class="sub">
+    這是整個設計的分水嶺,也是它跟「把新聞丟給 ChatGPT 叫它摘要」的差別。
+  </p>
+
+  <div class="split">
+    <div class="half">
+      <span class="role">演算法</span>
+      <h3>決定哪 18 則值得看</h3>
+      <p>
+        確定性的。同樣的輸入,永遠得到同樣的排序。每個分數都帶著它的因子拆解,
+        所以「為什麼這則排第一」可以攤開成算式。
+      </p>
+    </div>
+    <div class="half model">
+      <span class="role">語言模型</span>
+      <h3>把已經排好的寫成人話</h3>
+      <p>
+        它拿到的是<strong>已經排序好的清單</strong>,而且 system prompt 明講:
+        選材不是你的工作。不准重排、不准加新聞、不准寫出輸入裡沒有的數字。
+      </p>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="tag">為什麼這樣切</span>
+    <p>
+      如果讓模型自己挑,它挑錯了你**查不出原因、重現不了、也無從修正**。
+      切開之後,簡報開頭選錯故事 = 某個因子權重不對 —— 那是看得見、測得到、改得掉的東西。
+      你用四十分鐘的閱讀,換到的不該是一個你必須信任的黑盒子。
+    </p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">管線</span>
+  <h2>七個階段</h2>
+  <p class="sub">每一階段都可以單獨測試,而且都有測試。</p>
+
+  <div class="spine">
+
+    <div class="stage">
+      <div class="rail"><div class="dot">0</div></div>
+      <div class="body">
+        <h3>抓取 <span class="where">fetchers/rss.py</span></h3>
+        <p>
+          12 個 RSS 源同時抓,每個源獨立計時、獨立 try/except。
+          任何一個掛掉或卡住都不會拖垮整批 —— 這條規則是有代價才學到的:
+          上游系統曾經因為一個源回應要 66 秒,整份日報就沒了。
+          只收 24 小時內的(ECB 官方聲明放寬到 72 小時,因為它一週才發兩次)。
+        </p>
+        <div class="flowline">12 sources → <b>~157</b> raw items</div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="rail"><div class="dot">1</div></div>
+      <div class="body">
+        <h3>硬過濾 <span class="where">scoring/filters.py</span></h3>
+        <p>
+          三類直接砍掉,不是扣分:<strong>標題黨</strong>(Top 10、價格預測、5 個理由)、
+          <strong>純價格跳動</strong>(「ETH 突破 $4,200」後面沒有下文 —— 跟行情面板重複)、
+          <strong>總經噪音</strong>(世界盃票價、名人八卦)。
+        </p>
+        <p>
+          <strong>為什麼是硬砍不是扣分:</strong>如果只扣分,一篇來源好、時間新的標題黨
+          還是能靠其他因子擠回榜上。硬過濾是二元的,沒得投票。
+        </p>
+        <div class="flowline">157 → <b>~132</b> 通過</div>
+      </div>
+    </div>
+
+    <div class="stage key">
+      <div class="rail"><div class="dot">2</div></div>
+      <div class="body">
+        <h3>去重 <span class="where">scoring/dedup.py</span></h3>
+        <p>
+          12 個源報導同一個市場,同一件事會用 6 種寫法出現 6 次。三個偵測器並行,
+          任一命中就合併:
+        </p>
+        <p>
+          <strong>A. TF-IDF 餘弦相似度 ≥ 0.5</strong> —— 抓字面接近的。
+          比對前先做正規化:ticker 同義詞(btc→bitcoin)、動詞家族
+          (surges / climbs / jumps 全部收斂成 rally,含過去式)。
+        </p>
+        <p>
+          <strong>B. 專有名詞重疊</strong> —— 抓字面完全不同的改寫。
+          「Cardano Foundation cancels summit」和「The Cardano Foundation will not
+          be holding the Cardano Summit」在 TF-IDF 上分數很低,但共同實體很高。
+        </p>
+        <p>
+          <strong>C. 單一稀有實體</strong> —— B 要求至少兩個共同實體,對簡短標題太嚴。
+          若共同實體只有一個、但它在整批裡很罕見,且雙方還共享一個非實體的內容詞,就算同一件事。
+        </p>
+        <p>
+          合併是<strong>遞移閉包</strong>:候選只要跟群集裡任一成員相符就加入,
+          不是只跟第一個比。三家報導同一件事時,常常 A~B、B~C 成立但 A~C 不成立,
+          只比第一個會把第三家漏在外面。
+        </p>
+        <div class="flowline">132 → <b>~107</b> 去重後(記下 source_count)</div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="rail"><div class="dot">3</div></div>
+      <div class="body">
+        <h3>分類 <span class="where">scoring/categories.py</span></h3>
+        <p>
+          五個讀者面的類別,<strong>單標籤、依優先序、先命中者勝</strong>。
+          ETF 託管商被駭算「安全事件」—— 會動到部位的那個事實決定分類。
+          多標籤會讓一則新聞佔掉你好幾個類別的名額,那跟過濾的目的正好相反。
+        </p>
+        <p>
+          然後套用你的類別設定。這是<strong>硬過濾</strong>:「我只要看安全事件」
+          不是「把總經稍微排後面一點」的意思。
+        </p>
+        <div class="flowline">依設定過濾 → 進入計分的池子</div>
+      </div>
+    </div>
+
+    <div class="stage key">
+      <div class="rail"><div class="dot">4</div></div>
+      <div class="body">
+        <h3>計分 <span class="where">scoring/weights.py</span></h3>
+        <p>
+          八個因子,每個先正規化到 0–1,再加權求和除以權重總和。
+          結果是 0–1 的分數,<strong>而且每個分數都帶著完整拆解</strong> ——
+          哪個因子貢獻多少、為什麼。這就是 <code>/why</code> 印出來的東西。
+        </p>
+        <div class="flowline">score = Σ(weight × factor) ÷ Σ(weight)</div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="rail"><div class="dot">5</div></div>
+      <div class="body">
+        <h3>選取 <span class="where">scoring/weights.py</span></h3>
+        <p>
+          <strong>先看品質,不先看數量。</strong>取所有 ≥ 0.30 的,上限 12(加密)+ 6(總經)。
+          新聞少的一天就給你短的清單,而不是硬湊滿。
+        </p>
+        <p>
+          <strong>主題上限:</strong>同一個資產最多 3 則。
+          去重管的是「同一則新聞」,管不到「同一個敘事」——
+          五篇各自獨立的比特幣行情評論是五則不同新聞,但讀起來是同一件事講五遍。
+        </p>
+        <p>
+          <strong>下限保底:</strong>如果上面兩條讓結果太少,被壓下的會放回來。
+          重複的清單比空的清單好。
+        </p>
+        <div class="flowline">107 → <b>18</b> 選中</div>
+      </div>
+    </div>
+
+    <div class="stage">
+      <div class="rail"><div class="dot">6</div></div>
+      <div class="body">
+        <h3>寫稿與送出 <span class="where">llm/digest.py · bot/send.py</span></h3>
+        <p>
+          前 10 則交給模型寫成 bullet,其餘進 Sources 清單 —— 18 條 bullet 是文字牆不是簡報。
+          模型鏈是<strong>跨廠商</strong>的:Moonshot Kimi K3,失敗才換 xAI Grok 4.3。
+          同一家的兩個模型叫重試,不叫備援,因為廠商掛掉時兩條一起死。
+        </p>
+        <p>
+          全部供應商都失敗時,直接用排名最高的標題出模板版 ——
+          降級、誠實、而且順序依然正確,因為<strong>排序從來不依賴模型</strong>。
+        </p>
+        <p>
+          Telegram 單則上限 4096 字元,超過就<strong>分成多則</strong>,在條目之間的空行切開。
+        </p>
+        <div class="flowline">18 則 → <b>2–3</b> 則 Telegram 訊息</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">配重</span>
+  <h2>八個因子</h2>
+  <p class="sub">
+    這張表是整個專案最值錢的部分。權重必須當成<strong>一組</strong>來看 ——
+    單獨改一個,其他七個的意義都會跟著變。
+  </p>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr><th>因子</th><th style="text-align:right">權重</th><th>衡量什麼</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="name">keyword</td><td class="w">0.185</td><td class="desc">四層關鍵詞,<strong>最高層命中者勝、不累加</strong>。T1 <code>fed</code> <code>cpi</code> <code>hack</code> → 1.0,T4 <code>btc</code> <code>defi</code> → 0.25</td></tr>
+        <tr><td class="name">recency</td><td class="w">0.185</td><td class="desc">24 小時內線性衰減到 0。用線性不用指數 —— 指數會讓幾小時前的東西直接不可排序,對一天一次的簡報是錯的</td></tr>
+        <tr><td class="name">source_quality</td><td class="w">0.185</td><td class="desc">逐家評分。FT / Bloomberg / The Block 1.0 → Decrypt 0.75 → 未列入 0.60</td></tr>
+        <tr><td class="name">topicality</td><td class="w">0.130</td><td class="desc">從 RSS 標籤判斷主題相關性。<strong>沒標籤給 0.5 不給 0</strong> —— 有些媒體根本不打標籤,給 0 等於因為排版習慣封殺整家媒體</td></tr>
+        <tr class="dial"><td class="name">numeric</td><td class="w">0.100</td><td class="desc">標題帶幾個具體數字。0 個→0,1 個→0.35,2 個→0.75,3+→1.0</td></tr>
+        <tr class="dial"><td class="name">analysis</td><td class="w">0.100</td><td class="desc">讀起來多像評論而非純報導。偵測分析框架詞、具名觀點,以及 <code>&lt;結論&gt;: Bernstein</code> 這種業界的分析師署名格式</td></tr>
+        <tr><td class="name">source_count</td><td class="w">0.075</td><td class="desc">幾家媒體同時報導。1 家→0,2 家→0.20,3–4 家→0.55,5+→1.0</td></tr>
+        <tr><td class="name">asset</td><td class="w">0.040</td><td class="desc">BTC/ETH 1.0,大型幣 0.7,迷因幣 0.3,沒提到資產 0.5</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <span class="tag">最反直覺的一個數字</span>
+    <p>
+      <strong>source_count 只有 0.075。</strong>多家同時報導是真的證據,所以它該有一席之地 ——
+      但權重一給高,一件大事會連續霸榜三天,因為每家媒體都在反覆報。
+      把它的影響力壓在 7.5%,買到佐證訊號,又不讓昨天的新聞賴在今天的簡報裡。
+      有一個測試專門釘這件事:一則陳舊、來源普通但九家報導的新聞,
+      必須輸給一則來自頂級媒體的新鮮 T1 報導。
+    </p>
+  </div>
+
+  <div class="note">
+    <span class="tag">keyword 為什麼不累加</span>
+    <p>
+      一則講「穩定幣發行商遭攻擊」的新聞,它就是一則攻擊事件。
+      如果把各層分數加起來,一個塞滿中層詞彙的標題會贏過一則樸素的 Fed 決議。
+    </p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">使用者控制</span>
+  <h2>兩個旋鈕</h2>
+  <p class="sub">
+    <code>/weights</code> 裡的設定<strong>依聊天室各自儲存</strong>。
+    「給用戶選項」如果兩個人不能有不同設定,那就沒有意義。
+  </p>
+
+  <div class="dials">
+    <div class="dial">
+      <span class="eyebrow">旋鈕一</span>
+      <h3>五個類別</h3>
+      <ul class="cats">
+        <li><span class="cn">🔓 安全與風險</span><span class="cd">駭客、漏洞攻擊、脫鉤、破產、爆倉</span></li>
+        <li><span class="cn">⚖️ 監管與政策</span><span class="cd">SEC、訴訟、立法、牌照、執法</span></li>
+        <li><span class="cn">🏦 機構資金流</span><span class="cd">ETF、託管、企業持倉</span></li>
+        <li><span class="cn">📉 總經與利率</span><span class="cd">Fed、CPI、央行、殖利率、大盤、貿易政策</span></li>
+        <li><span class="cn">⚙️ 協議與技術</span><span class="cd">升級、分叉、L2、DeFi 機制、空投</span></li>
+      </ul>
+    </div>
+
+    <div class="dial">
+      <span class="eyebrow">旋鈕二</span>
+      <h3>深度</h3>
+      <p style="font-size:0.9rem;color:var(--muted);margin-top:8px">
+        <code>numeric</code> 和 <code>analysis</code> 共用一份固定的
+        <strong>0.200 額度</strong>,由你決定怎麼分。
+      </p>
+      <div class="depths">
+        <div class="depthrow"><span class="dn">Numbers</span><span class="dv">numeric <b>0.170</b> · analysis <b>0.030</b></span></div>
+        <div class="depthrow"><span class="dn">Balanced</span><span class="dv">numeric <b>0.100</b> · analysis <b>0.100</b></span></div>
+        <div class="depthrow"><span class="dn">Analysis</span><span class="dv">numeric <b>0.030</b> · analysis <b>0.170</b></span></div>
+      </div>
+      <p style="font-size:0.9rem;color:var(--muted);margin-top:14px">
+        <strong>額度總和固定不變</strong>,所以切換深度只會改變「風格」的比重,
+        不會偷偷改動主題、時效、來源可信度這三根支柱。
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">實例</span>
+  <h2>一則新聞的完整路徑</h2>
+  <p class="sub">下面每個數字都是程式實際跑出來的,不是舉例用的。</p>
+
+  <div class="trace">
+    <div class="head">
+      <div class="hl">Curve Finance exploited for $62 million in reentrancy attack</div>
+      <div class="meta">DL News · 1.5h ago · 2 outlets · tag: defi</div>
+    </div>
+    <ul class="steps">
+      <li><span class="sn">keyword</span><span class="sv"><b>1.00 × 0.185 = 0.185</b> — 命中 T1 關鍵詞 <code>exploit</code></span></li>
+      <li><span class="sn">source_quality</span><span class="sv"><b>0.95 × 0.185 = 0.176</b> — DL News</span></li>
+      <li><span class="sn">recency</span><span class="sv"><b>0.94 × 0.185 = 0.173</b> — 1.5 小時前</span></li>
+      <li><span class="sn">topicality</span><span class="sv"><b>1.00 × 0.130 = 0.130</b> — 標籤 <code>defi</code> 在相關清單裡</span></li>
+      <li><span class="sn">numeric</span><span class="sv"><b>0.35 × 0.100 = 0.035</b> — 一個數字($62 m)</span></li>
+      <li><span class="sn">asset</span><span class="sv"><b>0.50 × 0.040 = 0.020</b> — 沒指名特定資產</span></li>
+      <li><span class="sn">source_count</span><span class="sv"><b>0.20 × 0.075 = 0.015</b> — 2 家報導</span></li>
+      <li><span class="sn">analysis</span><span class="sv"><b>0.00 × 0.100 = 0.000</b> — 純報導,無評論框架</span></li>
+    </ul>
+    <div class="total"><span class="tl">總分 · Balanced</span><span class="tv">0.734</span></div>
+  </div>
+
+  <div class="note">
+    <span class="tag">同一則,換個深度</span>
+    <p>
+      Numbers 模式 <strong>0.759</strong> · Balanced <strong>0.734</strong> · Analysis <strong>0.710</strong>。
+      它帶了一個數字、沒有評論框架,所以偏向數據時得利、偏向分析時失分。
+      分類為 <strong>🔓 安全與風險</strong> —— 「漏洞攻擊」的優先序高於「DeFi 協議」,
+      因為會動到部位的是前者。
+    </p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">排程</span>
+  <h2>什麼時候會跑</h2>
+  <p class="sub">兩個工作掛在同一個事件迴圈上,不需要另外開排程程序。</p>
+
+  <div class="clock">
+    <div class="slot">
+      <span class="when">08:30 每天</span>
+      <span class="what">
+        <b>完整簡報</b> —— 跑整條管線、叫模型寫稿、推送 2–3 則訊息。
+        推送後把這 18 則標記為「已通知」,免得幾分鐘後又當成警報再送一次。
+      </span>
+    </div>
+    <div class="slot">
+      <span class="when">每 15 分鐘</span>
+      <span class="what">
+        <b>警報輪詢</b> —— 重跑管線(跳過行情抓取、不叫模型)。
+        任何一則 ≥ <code>0.72</code> 就<strong>立刻</strong>單獨推送,不等到早上。
+        已推送過的會記住 48 小時,不會重複打擾。
+      </span>
+    </div>
+    <div class="slot">
+      <span class="when">隨時</span>
+      <span class="what">
+        <b>指令</b> —— <code>/top</code>、<code>/digest</code>、<code>/weights</code>。
+        結果依聊天室快取 20 分鐘;改設定會立刻讓快取失效,
+        因為舊的排序是用舊公式算的。
+      </span>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="tag">警報存在的理由</span>
+    <p>
+      簡報回答的是「昨天發生了什麼」,警報回答的是「這件事不能等」。
+      分數引擎的價值在後者才真正兌現 —— 沒有它,就只是一個定時廣播。
+    </p>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">誠實的部分</span>
+  <h2>已知限制</h2>
+  <p class="sub">不寫這段,上面那些就只是行銷文案。</p>
+
+  <ul class="limits">
+    <li>
+      <b>權重是推理出來的,不是擬合出來的</b>
+      每個數字都有理由,但沒有一個是從資料算出來的。正確的下一步是記錄每天的排序
+      和讀者實際點開哪幾則,再回頭擬合 —— 把八個站得住腳的判斷變成八個量出來的數字。
+    </li>
+    <li>
+      <b>分類器一定還有缺口</b>
+      它是正則比對,而新聞用詞是開放的。這個專案至今修過五輪分類 bug
+      (<code>treasury</code>、<code>fund</code>、<code>sanction</code>、<code>institution</code>、<code>suing</code>),
+      每一輪都是真實輸出攤開後才看到的。這不是會「修完」的東西。
+    </li>
+    <li>
+      <b>純價格走勢沒有歸屬</b>
+      五個類別沒有一個是講價格波動的,所以那類新聞標成「📰 General」。
+      硬塞進任何一類都會讓那個類別變得不可信。
+    </li>
+    <li>
+      <b>沒有敘事新鮮度</b>
+      主題上限擋得住同一天的洗版,擋不住同一個題目連續三天出現。
+      應該有一個因子讓「一則故事的第四天」排在「第一天」後面,即使其他因子都沒變。
+    </li>
+  </ul>
+</section>
+
+<footer>
+  SignalDesk · 12 個免費新聞源、Binance 公開行情、alternative.me 恐懼貪婪指數 —— 全部零 key。
+  邊際成本是每份簡報一次模型呼叫。<br>
+  原始碼與完整提交紀錄:github.com/okyterrance/signaldesk
+</footer>
+
+</div>
