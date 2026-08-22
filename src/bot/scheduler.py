@@ -47,7 +47,8 @@ async def daily_digest_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
 
         built = await build_digest(result.items, result.market)
         await ctx.bot.send_message(
-            chat_id=chat_id, text=fmt.render_digest(built, prefs.depth), **_SEND
+            chat_id=chat_id, text=fmt.render_digest(built, prefs.depth, prefs, result.stats),
+            **_SEND,
         )
         # Anything in the digest should not also fire as an alert minutes
         # later. The reader has already seen it.

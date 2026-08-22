@@ -276,3 +276,41 @@ class TestOutletWording:
         assert _outlets(item) == "+1 outlet agrees"
         item.source_count = 4
         assert _outlets(item) == "+3 outlets agree"
+
+
+class TestScopeNote:
+    """A narrowed selection must say so, or a thin result reads as a bad one."""
+
+    def _prefs(self, *categories):
+        p = Prefs()
+        p.categories = set(categories)
+        return p
+
+    def test_silent_when_nothing_is_narrowed(self):
+        from src.bot.format import scope_note
+
+        assert scope_note(Prefs(), {"pool_before_filter": 47, "pool_after_filter": 47}) == ""
+
+    def test_explains_a_narrowed_pool(self):
+        """The live case: one category on, 3 of 47 matched, top-3 looked broken."""
+        from src.bot.format import scope_note
+
+        note = scope_note(
+            self._prefs("flows"),
+            {"pool_before_filter": 47, "pool_after_filter": 3},
+        )
+        assert "Institutional flows" in note
+        assert "3 of 47" in note
+        assert "/weights" in note
+
+    def test_survives_missing_stats(self):
+        from src.bot.format import scope_note
+
+        note = scope_note(self._prefs("security"), None)
+        assert "Security" in note
+        assert "of" not in note.split("Security")[1].split(".")[0]
+
+    def test_silent_when_no_prefs_supplied(self):
+        from src.bot.format import scope_note
+
+        assert scope_note(None, {}) == ""

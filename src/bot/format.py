@@ -128,6 +128,37 @@ LEGEND = (
 )
 
 
+def scope_note(prefs, stats: dict | None) -> str:
+    """Say when a narrowed selection is what produced a thin result.
+
+    Without this the reader draws the wrong conclusion. Filtering to one
+    category left three stories, the third of them 23 hours old, and that
+    reads as a broken ranking — when in fact the ranking was fine and the
+    pool was three items deep. The engine was right and the message let
+    the reader believe otherwise, which is the same cost as being wrong.
+    """
+    from src.scoring.categories import CATEGORY_EMOJI, CATEGORY_IDS, CATEGORY_LABELS
+
+    if not prefs or set(prefs.categories) >= set(CATEGORY_IDS):
+        return ""
+
+    chosen = [c for c in CATEGORY_IDS if c in prefs.categories]
+    if not chosen:
+        return ""
+
+    names = ", ".join(
+        f"{CATEGORY_EMOJI[c]} {esc(CATEGORY_LABELS[c].split(' &')[0])}" for c in chosen
+    )
+    note = f"<i>Filtered to {names}"
+
+    before = (stats or {}).get("pool_before_filter")
+    after = (stats or {}).get("pool_after_filter")
+    if isinstance(before, int) and isinstance(after, int) and before:
+        note += f" — {after} of {before} stories matched"
+
+    return note + ". /weights to widen.</i>"
+
+
 # --- market -----------------------------------------------------------
 
 def market_line(market: MarketSnapshot) -> str:
@@ -148,7 +179,13 @@ def market_line(market: MarketSnapshot) -> str:
 
 # --- primary views ----------------------------------------------------
 
-def render_top(items: list[NewsItem], limit: int, depth: str = "balanced") -> str:
+def render_top(
+    items: list[NewsItem],
+    limit: int,
+    depth: str = "balanced",
+    prefs=None,
+    stats: dict | None = None,
+) -> str:
     if not items:
         return (
             "🏆 <b>Top stories</b>\n\n"
@@ -169,11 +206,20 @@ def render_top(items: list[NewsItem], limit: int, depth: str = "balanced") -> st
         lines.append(_entry(item, i))
         lines.append("")
 
-    lines += [RULE, "", LEGEND, "", "<i>/digest for the written briefing</i>"]
+    lines += [RULE, ""]
+    scope = scope_note(prefs, stats)
+    if scope:
+        lines += [scope, ""]
+    lines += [LEGEND, "", "<i>/digest for the written briefing</i>"]
     return _clip("\n".join(lines))
 
 
-def render_digest(digest: Digest, depth: str = "balanced") -> str:
+def render_digest(
+    digest: Digest,
+    depth: str = "balanced",
+    prefs=None,
+    stats: dict | None = None,
+) -> str:
     lines = [
         "📊 <b>SignalDesk</b>",
         f"<i>{_local(digest.generated_at)}</i>",
@@ -194,7 +240,11 @@ def render_digest(digest: Digest, depth: str = "balanced") -> str:
             lines.append(_entry(item, i))
             lines.append("")
 
-    lines += [RULE, "", market_line(digest.market), "", RULE, "", LEGEND]
+    lines += [RULE, "", market_line(digest.market), "", RULE, ""]
+    scope = scope_note(prefs, stats)
+    if scope:
+        lines += [scope, ""]
+    lines.append(LEGEND)
 
     if not digest.llm_ok:
         lines += ["", "<i>⚠️ Model unavailable — showing ranked headlines only</i>"]

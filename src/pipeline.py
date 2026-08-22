@@ -68,15 +68,19 @@ async def run(
     selected: list[NewsItem] = []
     bucket_stats: dict[str, dict[str, int]] = {}
     filtered_out = 0
+    pool_before = 0
+    pool_after = 0
 
     for bucket, bucket_items in by_bucket.items():
         before = len(bucket_items)
         deduped = dedupe(bucket_items, threshold=settings.dedupe_threshold)
 
+        pool_before += len(deduped)
         if enabled_categories is not None:
             kept = categories.filter_by_categories(deduped, enabled_categories)
             filtered_out += len(deduped) - len(kept)
             deduped = kept
+        pool_after += len(deduped)
 
         scored = score_all(deduped, weights=table)
 
@@ -97,6 +101,8 @@ async def run(
     stats["buckets"] = bucket_stats
     stats["selected_total"] = len(selected)
     stats["filtered_by_category"] = filtered_out
+    stats["pool_before_filter"] = pool_before
+    stats["pool_after_filter"] = pool_after
     stats["depth"] = depth
     stats["categories"] = sorted(enabled_categories) if enabled_categories else "all"
 

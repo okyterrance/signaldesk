@@ -65,9 +65,13 @@ async def top(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Usage: /top [1-10]")
             return
 
+    chat_id = update.effective_chat.id
     items = await _ranked(update)
-    prefs = store.get(update.effective_chat.id)
-    await update.message.reply_text(fmt.render_top(items, limit, prefs.depth), **_SEND)
+    prefs = store.get(chat_id)
+    await update.message.reply_text(
+        fmt.render_top(items, limit, prefs.depth, prefs, state.stats_for(chat_id)),
+        **_SEND,
+    )
 
 
 async def digest(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -82,7 +86,9 @@ async def digest(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     state.remember(chat_id, prefs, result.items, result.market, result.stats)
 
     built = await build_digest(result.items, result.market)
-    await update.message.reply_text(fmt.render_digest(built, prefs.depth), **_SEND)
+    await update.message.reply_text(
+        fmt.render_digest(built, prefs.depth, prefs, result.stats), **_SEND
+    )
 
 
 async def weights(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
