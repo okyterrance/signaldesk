@@ -19,7 +19,7 @@ import pytest
 
 from src.bot import format as fmt
 from src.fetchers.rss import parse_feed
-from src.models import Digest, MarketSnapshot
+from src.models import Digest, MarketSnapshot, NewsItem
 from src.scoring.dedup import dedupe
 from src.scoring.weights import FACTOR_WEIGHTS, score_all, select_top
 
@@ -239,3 +239,71 @@ class TestRendering:
         text = fmt.render_digest(empty)
         assert "No qualifying stories" in text
         assert len(text) <= fmt.TG_LIMIT
+
+
+class TestLongMessagesSplit:
+    """Over-length output must continue, not vanish.
+
+    Telegram caps a message at 4096 characters. The previous behaviour
+    clipped: a twelve-story digest rendered six sources and silently
+    dropped the rest along with the market panel and legend. Nothing
+    errored, so the loss was invisible in production.
+    """
+
+    def _digest(self, n: int) -> Digest:
+        title = ("Bitcoin surge toward $80K points to liquidity-driven momentum "
+                 "shift as spot ETF flows rebound sharply: Bernstein analysts say")
+        url = ("https://www.theblock.co/news/markets/2026-08-21-bitcoin-surge-80k-"
+               "liquidity-driven-momentum-shift-etf-flows-rebound-bernstein-412443")
+        items = [
+            NewsItem(
+                title=title, url=url, source="The Block",
+                published_at=datetime.now(timezone.utc) - timedelta(hours=i + 1),
+            )
+            for i in range(n)
+        ]
+        score_all(items)
+        return Digest(
+            headline="A representative headline of about seventy characters in length",
+            bullets=["A bullet of the length these actually run to in practice."] * 10,
+            items=items,
+            market=MarketSnapshot(
+                prices={s: {"price": 1234.0, "change_pct": 1.2}
+                        for s in ("BTC", "ETH", "SOL", "XRP")},
+                fear_greed=71, fear_greed_label="Greed",
+            ),
+            generated_at=datetime.now(timezone.utc),
+        )
+
+    def test_short_output_stays_one_message(self):
+        parts = fmt.split_messages(fmt.render_digest(self._digest(3)))
+        assert len(parts) == 1
+
+    def test_every_part_fits(self):
+        for n in (12, 18, 24):
+            for part in fmt.split_messages(fmt.render_digest(self._digest(n))):
+                assert len(part) <= fmt.TG_LIMIT
+
+    def test_no_source_is_lost_at_any_pool_size(self):
+        for n in (12, 18, 24):
+            parts = fmt.split_messages(fmt.render_digest(self._digest(n)))
+            assert sum(p.count('<a href=') for p in parts) == n
+
+    def test_the_tail_of_the_message_survives(self):
+        """Market panel and legend sit last, so they went first when clipped."""
+        parts = fmt.split_messages(fmt.render_digest(self._digest(18)))
+        joined = "".join(parts)
+        assert "Fear" in joined
+        assert "Score is 0–1" in joined
+
+    def test_split_falls_on_entry_boundaries(self):
+        """Tags open and close on one line, so no part may be unbalanced."""
+        for part in fmt.split_messages(fmt.render_digest(self._digest(18))):
+            for tag in ("b", "i", "a"):
+                assert part.count(f"<{tag}") == part.count(f"</{tag}>")
+
+    def test_a_single_oversized_block_is_still_cut(self):
+        """Last resort: one unbreakable block cannot exceed the limit."""
+        parts = fmt.split_messages("x" * (fmt.TG_LIMIT * 2 + 5))
+        assert len(parts) == 3
+        assert all(len(p) <= fmt.TG_LIMIT for p in parts)

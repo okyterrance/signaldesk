@@ -25,6 +25,7 @@ from telegram.ext import Application, ContextTypes
 from src import pipeline
 from src.bot import format as fmt
 from src.bot.preferences import store
+from src.bot.send import push
 from src.bot.state import state
 from src.config import settings
 from src.llm.digest import build_digest
@@ -46,9 +47,8 @@ async def daily_digest_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
         state.remember(chat_id, prefs, result.items, result.market, result.stats)
 
         built = await build_digest(result.items, result.market)
-        await ctx.bot.send_message(
-            chat_id=chat_id, text=fmt.render_digest(built, prefs.depth, prefs, result.stats),
-            **_SEND,
+        await push(
+            ctx.bot, chat_id, fmt.render_digest(built, prefs.depth, prefs, result.stats)
         )
         # Anything in the digest should not also fire as an alert minutes
         # later. The reader has already seen it.
@@ -76,9 +76,7 @@ async def alert_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
                 break  # sorted, so nothing below here qualifies
             if not state.should_alert(item):
                 continue
-            await ctx.bot.send_message(
-                chat_id=chat_id, text=fmt.render_alert(item, threshold), **_SEND
-            )
+            await push(ctx.bot, chat_id, fmt.render_alert(item, threshold))
             state.mark_alerted(item)
             fired += 1
 

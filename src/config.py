@@ -51,10 +51,18 @@ class Settings(BaseSettings):
     source_timeout_s: float = 12.0
     # Adaptive top-N per bucket: take everything above `select_threshold`,
     # capped at max_n; if that leaves fewer than min_n, backfill by rank.
-    crypto_min_n: int = 4
-    crypto_max_n: int = 8
-    macro_min_n: int = 2
-    macro_max_n: int = 4
+    # Raised from 8+4 after a full day's use: the top of the ranking was
+    # stable enough that /top kept showing the same handful. A deeper pool
+    # does not change the lead, it gives the tail somewhere to be. Safe to
+    # raise only because over-long messages now split instead of clipping.
+    crypto_min_n: int = 6
+    crypto_max_n: int = 12
+    macro_min_n: int = 3
+    macro_max_n: int = 6
+
+    # The briefing highlights, then lists. Eighteen written bullets is a
+    # wall of text; the rest of the pool still appears under Sources.
+    digest_bullet_max: int = 10
     select_threshold: float = 0.30
     dedupe_threshold: float = 0.50
 

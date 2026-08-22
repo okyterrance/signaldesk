@@ -253,7 +253,7 @@ def render_top(
         if note:
             lines += [note, ""]
     lines += [LEGEND, "", "<i>/digest for the written briefing</i>"]
-    return _clip("\n".join(lines))
+    return "\n".join(lines)
 
 
 def render_digest(
@@ -291,7 +291,7 @@ def render_digest(
     if not digest.llm_ok:
         lines += ["", "<i>⚠️ Model unavailable — showing ranked headlines only</i>"]
 
-    return _clip("\n".join(lines))
+    return "\n".join(lines)
 
 
 def render_alert(item: NewsItem, threshold: float | None = None) -> str:
@@ -439,7 +439,43 @@ def render_why(item: NewsItem, index: int) -> str:
     return _clip("\n".join(lines))
 
 
+def split_messages(text: str, limit: int = TG_LIMIT) -> list[str]:
+    """Break an over-long message into whole parts instead of discarding the tail.
+
+    Telegram caps a message at 4096 characters, and the previous
+    behaviour was to clip: a twelve-story digest rendered six sources and
+    silently dropped the rest, along with the market panel and the legend
+    underneath them. Nothing errored, so the loss was invisible.
+
+    Splitting happens on blank lines, which separate whole entries and
+    sections. Every tag in this module opens and closes on one line, so a
+    boundary chosen here can never cut a tag pair in half.
+    """
+    if len(text) <= limit:
+        return [text]
+
+    parts: list[str] = []
+    current = ""
+    for block in text.split("\n\n"):
+        candidate = f"{current}\n\n{block}" if current else block
+        if len(candidate) <= limit:
+            current = candidate
+            continue
+        if current:
+            parts.append(current)
+        # A single block over the limit has nowhere to break; cut it, but
+        # this is a last resort rather than the normal path.
+        while len(block) > limit:
+            parts.append(block[:limit])
+            block = block[limit:]
+        current = block
+    if current:
+        parts.append(current)
+    return parts
+
+
 def _clip(text: str) -> str:
+    """Kept for single-message views; long ones go through split_messages."""
     if len(text) <= TG_LIMIT:
         return text
     return text[: TG_LIMIT - 24].rsplit("\n", 1)[0] + "\n\n<i>…truncated</i>"

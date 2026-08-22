@@ -19,6 +19,7 @@ from src import pipeline
 from src.bot import format as fmt
 from src.bot.keyboards import CB_ALL, CB_CATEGORY, CB_DEPTH, settings_keyboard
 from src.bot.preferences import store
+from src.bot.send import reply
 from src.bot.state import state
 from src.llm.digest import build_digest
 from src.models import NewsItem
@@ -53,7 +54,7 @@ async def _ranked(update: Update, force: bool = False) -> list[NewsItem]:
 # --- commands ---------------------------------------------------------
 
 async def start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text(fmt.render_help(), **_SEND)
+    await reply(update.message, fmt.render_help())
 
 
 async def top(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -68,9 +69,9 @@ async def top(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     chat_id = update.effective_chat.id
     items = await _ranked(update)
     prefs = store.get(chat_id)
-    await update.message.reply_text(
+    await reply(
+        update.message,
         fmt.render_top(items, limit, prefs.depth, prefs, state.stats_for(chat_id)),
-        **_SEND,
     )
 
 
@@ -86,17 +87,17 @@ async def digest(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     state.remember(chat_id, prefs, result.items, result.market, result.stats)
 
     built = await build_digest(result.items, result.market)
-    await update.message.reply_text(
-        fmt.render_digest(built, prefs.depth, prefs, result.stats), **_SEND
+    await reply(
+        update.message, fmt.render_digest(built, prefs.depth, prefs, result.stats)
     )
 
 
 async def weights(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     prefs = store.get(update.effective_chat.id)
-    await update.message.reply_text(
+    await reply(
+        update.message,
         fmt.render_settings(prefs, weights_for(prefs.depth)),
         reply_markup=settings_keyboard(prefs),
-        **_SEND,
     )
 
 
@@ -117,7 +118,7 @@ async def why(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not 1 <= index <= len(items):
         await update.message.reply_text(f"Pick a number between 1 and {len(items)}.")
         return
-    await update.message.reply_text(fmt.render_why(items[index - 1], index), **_SEND)
+    await reply(update.message, fmt.render_why(items[index - 1], index))
 
 
 # --- settings callbacks ----------------------------------------------

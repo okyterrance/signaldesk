@@ -161,6 +161,10 @@ favours commentary, explainers and attributed views; *Balanced* sits
 between. The choice moves the two style weights and nothing else, and the
 settings screen shows you the two numbers that changed.
 
+The pool is up to 18 stories (12 crypto, 6 macro). The briefing writes up
+the top ten and lists the rest under Sources; a message over Telegram's
+4096-character ceiling continues into another rather than being clipped.
+
 Automatically: a **daily briefing** at a configured time, and an
 **immediate alert** for anything scoring at or above the threshold — the
 alert loop is where the scoring engine earns its keep, since a digest
@@ -202,7 +206,7 @@ bet a demo on.
 ### Tests
 
 ```bash
-python -m pytest tests/ -q      # 132 tests, no network, no API key
+python -m pytest tests/ -q      # 138 tests, no network, no API key
 ```
 
 The whole ranking path is deterministic, so a bad ranking is reproducible

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from src.config import settings
 from src.llm.client import complete_json
 from src.models import Digest, MarketSnapshot, NewsItem
 
@@ -102,12 +103,17 @@ async def build_digest(items: list[NewsItem], market: MarketSnapshot) -> Digest:
             llm_ok=True,
         )
 
+    # A briefing highlights and then lists. Only the top slice is written
+    # up; the rest of the pool still reaches the reader under Sources,
+    # which is what a deeper pool is for.
+    written = items[: settings.digest_bullet_max]
+
     user_prompt = (
         f"MARKET CONTEXT (for tone only, do not restate verbatim):\n"
         f"{_format_market(market)}\n\n"
-        f"RANKED STORIES ({len(items)}):\n\n{_format_items(items)}\n\n"
+        f"RANKED STORIES ({len(written)}):\n\n{_format_items(written)}\n\n"
         f"Write the briefing. One bullet per story, in the order given, "
-        f"maximum {len(items)} bullets."
+        f"maximum {len(written)} bullets."
     )
 
     result = await complete_json(SYSTEM_PROMPT, user_prompt)
