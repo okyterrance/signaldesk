@@ -234,3 +234,45 @@ class TestPreferenceStore:
         restored = PreferenceStore(path).get(111)
         assert restored.categories == set(CATEGORY_IDS)
         assert restored.depth == "data"
+
+
+class TestSignalLabels:
+    """Bands are calibrated against production output, not the demo set."""
+
+    def test_a_real_days_lead_story_reads_as_strong(self):
+        """Observed live digest: 0.66 led, tailing to 0.38.
+
+        Bands tuned on the curated sample (all above 0.70) would have
+        labelled that lead story "Background".
+        """
+        from src.bot.format import signal_label
+
+        assert signal_label(0.66) == "Strong"
+        assert signal_label(0.56) == "Notable"
+        assert signal_label(0.38) == "Context"
+
+    def test_bands_are_monotonic(self):
+        from src.bot.format import NOTABLE_AT, STRONG_AT, signal_label
+
+        assert STRONG_AT > NOTABLE_AT
+        assert signal_label(1.0) == "Strong"
+        assert signal_label(0.0) == "Context"
+        assert signal_label(STRONG_AT) == "Strong"
+        assert signal_label(NOTABLE_AT) == "Notable"
+
+
+class TestOutletWording:
+    def test_single_source_says_nothing(self):
+        from src.bot.format import _outlets
+
+        assert _outlets(make_item("x")) == ""
+
+    def test_corroboration_is_spelled_out(self):
+        """'2 outlets' did not say what was being counted."""
+        from src.bot.format import _outlets
+
+        item = make_item("x")
+        item.source_count = 2
+        assert _outlets(item) == "+1 outlet agrees"
+        item.source_count = 4
+        assert _outlets(item) == "+3 outlets agree"

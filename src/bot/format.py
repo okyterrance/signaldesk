@@ -55,6 +55,43 @@ def _age(item: NewsItem) -> str:
     return f"{int(hours / 24)}d ago"
 
 
+# Calibrated against observed production output, not against the demo
+# fixture. A live run leads at roughly 0.65-0.75 and tails to 0.38; the
+# curated sample headlines all sit above 0.70, so bands tuned on the
+# sample would have labelled a real day's lead story "Background".
+STRONG_AT = 0.65
+NOTABLE_AT = 0.45
+
+
+def signal_label(score: float) -> str:
+    """Plain-language band for a score.
+
+    A bare "0.66" is an internal quantity that means nothing to a reader —
+    the person who built this bot had to ask what it was. The number still
+    shows, because the auditability of the ranking is the point, but the
+    word carries the meaning and the number backs it up.
+
+    "Context" rather than "Low": the tail of a digest is there to support
+    the lead, and a label that reads as a verdict on the story's worth
+    would be both discouraging and wrong.
+    """
+    if score >= STRONG_AT:
+        return "Strong"
+    if score >= NOTABLE_AT:
+        return "Notable"
+    return "Context"
+
+
+def _outlets(item: NewsItem) -> str:
+    """'2 outlets' told a reader nothing about what it was counting."""
+    if item.source_count <= 1:
+        return ""
+    others = item.source_count - 1
+    if others == 1:
+        return "+1 outlet agrees"
+    return f"+{others} outlets agree"
+
+
 def _badge(item: NewsItem) -> str:
     if not item.category:
         return ""
@@ -65,23 +102,30 @@ def _badge(item: NewsItem) -> str:
 
 def _attribution(item: NewsItem) -> str:
     parts = [esc(item.source)]
-    if item.source_count > 1:
-        parts.append(f"{item.source_count} outlets")
+    outlets = _outlets(item)
+    if outlets:
+        parts.append(outlets)
     parts.append(_age(item))
     return " · ".join(parts)
 
 
 def _entry(item: NewsItem, index: int) -> str:
     """One story, in the fixed three-line shape used everywhere."""
-    head = f"<b>{index}</b>  <code>{item.score:.2f}</code>"
+    head = f"<b>{index}</b>  {signal_label(item.score)} <code>{item.score:.2f}</code>"
     badge = _badge(item)
     if badge:
-        head += f"  {badge}"
+        head += f"  ·  {badge}"
     return (
         f"{head}\n"
         f"<a href=\"{esc(item.url)}\">{esc(item.title)}</a>\n"
         f"<i>{_attribution(item)}</i>"
     )
+
+
+LEGEND = (
+    "<i>Score is 0–1 from your /weights — how much this matters today. "
+    "“+1 outlet agrees” means another newsroom ran the same story.</i>"
+)
 
 
 # --- market -----------------------------------------------------------
@@ -125,7 +169,7 @@ def render_top(items: list[NewsItem], limit: int, depth: str = "balanced") -> st
         lines.append(_entry(item, i))
         lines.append("")
 
-    lines += [RULE, "", "<i>/digest for the written briefing</i>"]
+    lines += [RULE, "", LEGEND, "", "<i>/digest for the written briefing</i>"]
     return _clip("\n".join(lines))
 
 
@@ -147,16 +191,10 @@ def render_digest(digest: Digest, depth: str = "balanced") -> str:
     if digest.items:
         lines += [RULE, "", "<b>Sources</b>", ""]
         for i, item in enumerate(digest.items, 1):
-            badge = _badge(item)
-            lines.append(
-                f"<b>{i}</b>  <code>{item.score:.2f}</code>"
-                + (f"  {badge}" if badge else "")
-            )
-            lines.append(f"<a href=\"{esc(item.url)}\">{esc(item.title)}</a>")
-            lines.append(f"<i>{_attribution(item)}</i>")
+            lines.append(_entry(item, i))
             lines.append("")
 
-    lines += [RULE, "", market_line(digest.market)]
+    lines += [RULE, "", market_line(digest.market), "", RULE, "", LEGEND]
 
     if not digest.llm_ok:
         lines += ["", "<i>⚠️ Model unavailable — showing ranked headlines only</i>"]
@@ -164,14 +202,16 @@ def render_digest(digest: Digest, depth: str = "balanced") -> str:
     return _clip("\n".join(lines))
 
 
-def render_alert(item: NewsItem) -> str:
-    lines = [
-        "🚨 <b>Alert</b>",
-        f"<i>score {item.score:.2f} · above your threshold</i>",
-        "",
-        RULE,
-        "",
-    ]
+def render_alert(item: NewsItem, threshold: float | None = None) -> str:
+    """An alert has to justify interrupting someone.
+
+    The old version said "score 0.75 · above your threshold", which
+    assumes the reader knows what a score is, what the threshold is, and
+    what being above it causes. All three are spelled out now.
+    """
+    threshold = threshold if threshold is not None else settings.alert_threshold
+    lines = ["🚨 <b>Sent early</b>", "", RULE, ""]
+
     badge = _badge(item)
     if badge:
         lines.append(badge)
@@ -179,10 +219,16 @@ def render_alert(item: NewsItem) -> str:
         f"<a href=\"{esc(item.url)}\">{esc(item.title)}</a>",
         "",
         f"<i>{_attribution(item)}</i>",
+        "",
+        RULE,
+        "",
+        f"<i>This scored <b>{item.score:.2f}</b>, above your alert level of "
+        f"{threshold:.2f} — so it comes now instead of waiting for the "
+        f"{esc(settings.digest_time)} briefing.</i>",
     ]
     if item.breakdown:
-        drivers = " · ".join(f.name for f in item.breakdown.top_drivers(2))
-        lines.append(f"<i>driven by {esc(drivers)}</i>")
+        drivers = ", ".join(f.name for f in item.breakdown.top_drivers(2))
+        lines.append(f"<i>Mostly on {esc(drivers)}.</i>")
     return _clip("\n".join(lines))
 
 

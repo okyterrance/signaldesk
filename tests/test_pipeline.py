@@ -211,11 +211,18 @@ class TestRendering:
             assert f"<b>{i}</b>" in text
         assert len(text) <= fmt.TG_LIMIT
 
-    def test_alert_renders(self, crypto_items):
+    def test_alert_explains_why_it_interrupted(self, crypto_items):
+        """An alert must say what the score is, what the level is, and what
+        being above it caused. 'score 0.75 · above your threshold' said
+        none of the three to the person who built the bot."""
         items, _ = crypto_items
         ranked = score_all(dedupe(items))
-        text = fmt.render_alert(ranked[0])
-        assert "Alert" in text
+        text = fmt.render_alert(ranked[0], threshold=0.60)
+
+        assert f"{ranked[0].score:.2f}" in text
+        assert "0.60" in text
+        assert "alert level" in text
+        assert "instead of waiting" in text
         assert len(text) <= fmt.TG_LIMIT
 
     def test_long_content_is_clipped_not_dropped(self):

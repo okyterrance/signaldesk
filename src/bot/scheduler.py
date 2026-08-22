@@ -76,7 +76,7 @@ async def alert_job(ctx: ContextTypes.DEFAULT_TYPE) -> None:
             if not state.should_alert(item):
                 continue
             await ctx.bot.send_message(
-                chat_id=chat_id, text=fmt.render_alert(item), **_SEND
+                chat_id=chat_id, text=fmt.render_alert(item, threshold), **_SEND
             )
             state.mark_alerted(item)
             fired += 1

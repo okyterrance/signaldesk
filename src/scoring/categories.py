@@ -52,28 +52,45 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
         "Institutional flows",
         "ETFs, treasuries, custody, corporate holdings",
         re.compile(
-            # `treasury` is deliberately NOT bare here. Flows is tested
-            # before macro, and a bare `treasur\w+` swallowed "Treasury
-            # yields climb as inflation surprises" -- a government-bond
-            # story filed as an institutional-flows one. Only corporate
-            # treasuries belong in this category.
+            # Generic finance nouns are deliberately absent. Flows is
+            # tested before macro, so anything matched here is taken out
+            # of macro's reach -- and two bare words did exactly that in
+            # production. `treasur\w+` swallowed "Treasury yields climb as
+            # inflation surprises"; `fund|funds` then swallowed "hedge
+            # funds' top energy plays", "Goldman says hedge funds
+            # underperformed the S&P 500" and "how money-market funds are
+            # fuelling stocks" -- three equity-market stories filed as
+            # crypto institutional flows, in one digest.
+            #
+            # This category means capital moving into or out of digital
+            # assets. A fund that is merely mentioned is not that, so
+            # `fund` only counts when qualified as a crypto vehicle.
             r"\b(etf|etfs|inflow\w*|outflow\w*|custody|custodian|blackrock|"
             r"fidelity|grayscale|vanguard|microstrategy|"
+            # One intervening word allowed, so "RLUSD credit fund" and
+            # "crypto index fund" match while a distant co-mention does not.
+            r"(?:crypto|bitcoin|digital[- ]asset|token(?:ized)?|rlusd|stablecoin)"
+            r"\s+(?:\w+\s+)?fund\w*|"
             r"corporate treasur\w+|treasury (?:holdings?|company|reserves?)|"
-            r"allocat\w+|institution\w*|fund|funds|aum|holdings?|"
-            r"accumulat\w+|whale\w*)\b",
+            r"aum|holdings?|accumulat\w+|whale\w*)\b",
             re.IGNORECASE,
         ),
     ),
     (
         "macro",
         "Macro & rates",
-        "Fed, CPI, central banks, yields, FX",
+        "Fed, CPI, central banks, yields, broad markets",
         re.compile(
             r"\b(fed|fomc|federal reserve|ecb|boj|central bank\w*|cpi|ppi|pce|"
             r"inflation|deflation|rate|rates|yield\w*|bond\w*|dxy|dollar|"
             r"currency|gdp|payroll\w*|unemployment|recession|stimulus|"
-            r"qe|liquidity|jobs report)\b",
+            r"qe|liquidity|jobs report|"
+            # Broad-market conditions belong here too. Without these, a
+            # story about hedge funds and the S&P 500 matches nothing at
+            # all once it stops (correctly) matching crypto flows.
+            r"s&p|nasdaq|dow|equit\w+|stocks?|vix|volatility|"
+            r"hedge fund\w*|money[- ]market fund\w*|money[- ]market|"
+            r"commercial paper|oil|wti|brent|energy sector)\b",
             re.IGNORECASE,
         ),
     ),
