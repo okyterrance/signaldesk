@@ -206,7 +206,7 @@ bet a demo on.
 ### Tests
 
 ```bash
-python -m pytest tests/ -q      # 138 tests, no network, no API key
+python -m pytest tests/ -q      # 147 tests, no network, no API key
 ```
 
 The whole ranking path is deterministic, so a bad ranking is reproducible

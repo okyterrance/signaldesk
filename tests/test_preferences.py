@@ -566,3 +566,62 @@ class TestLabelMatchesTheNumberShown:
                 else "Context"
             )
             assert signal_label(raw) == expected, raw
+
+
+class TestNarrowTermsDoNotStealFromMacro:
+    """Every widening here is checked in both directions.
+
+    Three category bugs in this project came from one habit: adding a
+    broad word to a category that is tested early, then verifying only
+    that the intended headline matched. `treasur\\w+` took government
+    bonds into flows, `fund|funds` took equity news with it, and
+    `sanction|tariff` made Regulation return geopolitics. So each of these
+    asserts what the term must catch *and* what it must leave alone.
+    """
+
+    @pytest.mark.parametrize(
+        "title,expected",
+        [
+            # `suing` was missing beside `sued`/`sues`.
+            ("Crypto advocates join in suing Illinois over digital asset tax", "regulation"),
+            ("Treasury proposes new crypto tax rules for brokers", "regulation"),
+            # ... but tax alone must not pull fiscal policy out of macro.
+            ("Tax cuts boost consumer spending as the economy expands", "macro"),
+            ("Deficit widens as budget talks stall", "macro"),
+        ],
+    )
+    def test_tax_and_litigation_terms(self, title, expected):
+        assert classify(make_item(title)) == expected
+
+    @pytest.mark.parametrize(
+        "title,expected",
+        [
+            # Lost in the rewrite that removed the bare `fund|funds`.
+            ("Crypto is in an institutional summer, STS Digital CEO says", "flows"),
+            ("Institutional investors allocate to bitcoin", "flows"),
+            # ... but allocation of government money is macro.
+            ("Qatar allocates state spending as war shrinks the economy", "macro"),
+        ],
+    )
+    def test_institutional_terms(self, title, expected):
+        assert classify(make_item(title)) == expected
+
+    def test_the_earlier_regressions_stay_fixed(self):
+        """The three headlines that each exposed one of these bugs."""
+        assert classify(make_item("Treasury yields climb as inflation surprises")) == "macro"
+        assert classify(
+            make_item("Goldman says hedge funds trailed the S&P 500 in July")
+        ) == "macro"
+        assert classify(
+            make_item("India's Foreign Minister to Visit Russia Amid US Tariff Threat")
+        ) == "macro"
+
+    def test_price_action_has_no_home_and_that_is_honest(self):
+        """None of the five categories is about price movement.
+
+        Better an explicit "General" than a forced fit that would make a
+        reader's chosen category untrustworthy.
+        """
+        assert classify(
+            make_item("XRP Erases Its Most Bearish Signal, Ripple-Linked Coin Is Flying")
+        ) is None

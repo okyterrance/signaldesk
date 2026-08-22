@@ -47,10 +47,19 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
         # rule-making. OFAC stays, because an OFAC designation is an
         # enforcement action against a named entity.
         re.compile(
-            r"\b(sec|cftc|regulat\w+|lawsuit|sued|sues|court|judge|ruling|"
-            r"settlement|subpoena|enforcement|legislat\w+|bill|congress|"
-            r"senate|ban|banned|licence|license|licensing|"
-            r"compliance|mica|ofac|probe|investigat\w+|clarity act)\b",
+            # `suing` was missing beside `sued`/`sues`, which is how
+            # "Crypto advocates join in suing Illinois over digital asset
+            # tax" ended up uncategorised. Tax is qualified rather than
+            # bare: an unqualified `tax` sits ahead of macro in the order
+            # and would pull fiscal stories out of it, which is the
+            # mistake `treasury` and `fund` already made here twice.
+            r"\b(sec|cftc|regulat\w+|lawsuit|litigation|sue|sued|sues|suing|"
+            r"court|judge|ruling|settlement|subpoena|enforcement|"
+            r"legislat\w+|bill|congress|senate|ban|banned|"
+            r"licence|license|licensing|compliance|mica|ofac|probe|"
+            r"investigat\w+|clarity act|"
+            r"(?:digital[- ]asset|crypto|capital[- ]gains)\s+tax|"
+            r"tax\s+(?:rule|law|bill|code|treatment|guidance|policy)|taxation)\b",
             re.IGNORECASE,
         ),
     ),
@@ -79,6 +88,12 @@ CATEGORIES: list[tuple[str, str, str, re.Pattern[str]]] = [
             r"(?:crypto|bitcoin|digital[- ]asset|token(?:ized)?|rlusd|stablecoin)"
             r"\s+(?:\w+\s+)?fund\w*|"
             r"corporate treasur\w+|treasury (?:holdings?|company|reserves?)|"
+            # `institution\w*` was lost in the rewrite that removed the bare
+            # `fund|funds`, leaving "an institutional summer for crypto"
+            # with no category at all. Portfolio allocation is qualified,
+            # since a bare `allocat\w+` would also catch a government
+            # allocating spending, which is macro.
+            r"institution\w*|allocat\w+\s+(?:to|into)|portfolio allocat\w+|"
             r"aum|holdings?|accumulat\w+|whale\w*)\b",
             re.IGNORECASE,
         ),
