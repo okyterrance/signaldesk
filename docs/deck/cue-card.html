@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SignalDesk — Part 2 cue card</title>
+<style>
+  :root {
+    --ink: #22323f; --head: #16232e; --teal: #55798a;
+    --dim: #6d7f8c; --hair: #ccd6dd; --wash: #f4f7f8; --flag: #a8442e;
+  }
+  @page { size: A4; margin: 9mm 11mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Lato", "Source Sans Pro", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 10pt; line-height: 1.24; color: var(--ink); margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  h1 { font-size: 15pt; color: var(--head); margin: 0 0 1pt; letter-spacing: -0.2pt; }
+  .meta { font-size: 9.5pt; color: var(--dim); margin: 0 0 5pt; }
+  .meta b { color: var(--head); }
+  .rule { height: 0.75pt; background: var(--hair); margin: 0 0 7pt; }
+
+  .step { margin-bottom: 6pt; }
+  .step h2 {
+    font-size: 9.5pt; font-weight: 700; margin: 0 0 1pt;
+    text-transform: uppercase; letter-spacing: 1.4pt; color: var(--teal);
+  }
+  .step h2 .t { float: right; letter-spacing: 0.4pt; color: var(--dim);
+                font-variant-numeric: tabular-nums; }
+  .screen {
+    font-size: 9pt; color: var(--dim); margin: 0 0 3pt;
+    padding: 2pt 6pt; background: var(--wash);
+  }
+  .screen b { color: var(--head); }
+
+  ul { margin: 0; padding-left: 12pt; list-style: none; }
+  li { margin-bottom: 1.8pt; position: relative; }
+  li::before {
+    content: "—"; position: absolute; left: -12pt; color: var(--hair);
+  }
+  ul ul { margin-top: 1.8pt; padding-left: 12pt; }
+  ul ul li { color: var(--dim); font-size: 9.4pt; margin-bottom: 1.2pt; }
+  ul ul li::before { content: "·"; }
+  b { font-weight: 700; color: var(--head); }
+  code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9pt; }
+
+  /* the lines worth saying word for word */
+  li.say { color: var(--head); }
+  li.say::before { content: "▶"; color: var(--flag); font-size: 7.5pt; top: 1.5pt; }
+  li.say q { font-style: italic; quotes: "“" "”"; }
+  .beat { color: var(--flag); font-weight: 700; font-size: 8.5pt;
+          letter-spacing: 0.6pt; text-transform: uppercase; }
+  .do { color: var(--teal); font-weight: 700; }
+
+  .foot { display: flex; gap: 14pt; margin-top: 3pt;
+          padding-top: 4pt; border-top: 0.75pt solid var(--hair); }
+  .foot > div { flex: 1 1 0; font-size: 9pt; }
+  .foot h3 { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 1.2pt;
+             color: var(--teal); margin: 0 0 2pt; font-weight: 700; }
+  .foot ol { margin: 0; padding-left: 13pt; }
+  .foot li { margin-bottom: 1.4pt; }
+  .foot ol li::before { content: none; }
+  .foot ul li::before { content: "—"; }
+</style>
+</head>
+<body>
+
+<h1>Part 2 · cue card</h1>
+<p class="meta">Part 1 recorded at <b>3:00</b> &nbsp;·&nbsp; Part 2 runs <b>3:45</b>
+&nbsp;·&nbsp; total <b>≈ 6:45</b> against a <b>7:00</b> cap &nbsp;·&nbsp;
+one take, no face, two windows: <b>browser</b> (onepager.html, fullscreen) and <b>Telegram</b>.
+&nbsp; ▶ = say it close to word for word.</p>
+<div class="rule"></div>
+
+<div class="step">
+  <h2>1 · What I built <span class="t">0:00 – 0:36</span></h2>
+  <p class="screen">Screen: <b>one-pager, panel 1</b></p>
+  <ul>
+    <li>Name it: <b>SignalDesk</b>.</li>
+    <li>Who it's for: wants the market <b>quickly</b>, from <b>angles they choose</b> — not
+        forty minutes across a dozen sites every morning.</li>
+    <li>Today: a Telegram bot. <b>12 feeds in → one ranked briefing out</b>, pushed automatically.</li>
+    <li>Where it goes: a <b>free subscription site</b> — subscribe, pick your subjects, the
+        briefing comes to you.</li>
+    <li class="say"><q>Free is the point: the entire data layer costs nothing to run, so the
+        free tier <b>is</b> the growth channel.</q></li>
+  </ul>
+</div>
+
+<div class="step">
+  <h2>2 · How it works — the reader's side <span class="t">0:36 – 1:41</span></h2>
+  <p class="screen">Screen: <b>panel 2</b>, then <b>⌘Tab → Telegram</b></p>
+  <ul>
+    <li class="say"><q>Three commands, and that's the whole surface.</q></li>
+    <li><span class="do">Scroll up to this morning's 08:30 digest.</span> <b>“I didn't ask for
+        it — it arrived on its own.”</b> Point at: headline → one bullet per story →
+        <b>ranked source list with each score</b>.</li>
+    <li><span class="do">Type <code>/top</code>.</span> Same engine, on demand, when you don't
+        want to wait for tomorrow.</li>
+    <li><span class="do">Type <code>/weights</code>. Tap one subject off, then tap a depth button.</span>
+      <ul>
+        <li>five subjects: security · regulation · institutional flows · macro · protocol</li>
+        <li>switching one off is a <b>hard filter, not a hint</b></li>
+        <li>depth = numbers vs analysis; it <b>physically moves two weights</b>, and shows you
+            the two numbers that changed</li>
+      </ul>
+    </li>
+    <li><span class="do">⌘Tab back to browser, Page Down.</span></li>
+  </ul>
+</div>
+
+<div class="step">
+  <h2>3 · How AI was used <span class="t">1:41 – 2:48</span></h2>
+  <p class="screen">Screen: <b>panel 3</b> — factor table left, sources + system prompt right</p>
+  <ul>
+    <li><b>Data:</b> 12 RSS feeds (6 crypto, 6 macro) · <b>Binance public API</b> for prices ·
+        <b>Fear &amp; Greed index</b> for sentiment. <b>All free, no keys.</b></li>
+    <li><b>Ranking:</b> eight factors — how consequential · how recent · outlet quality ·
+        how many outlets corroborate · how many hard figures. Weighted, normalised to 0–1.</li>
+    <li class="say"><q>That is an algorithm, not a model.</q> Same input, same ranking, every
+        time — <b>148 offline tests</b>.</li>
+    <li class="say"><q>The model does exactly one job: it writes up the list the algorithm
+        already chose.</q></li>
+    <li><span class="do">Point at the prompt:</span> <i>already ranked · selection is not your
+        job · never invent a number.</i></li>
+    <li><b>Kimi K3</b> → <b>Grok 4.3</b> fallback. Built with <b>Claude Code</b>.</li>
+    <li>Why split it: if a model picks the stories and picks wrong, <b>you can't find out why</b>.
+        Here a wrong lead story is a wrong <b>factor weight</b> — see it, test it, fix it.</li>
+  </ul>
+</div>
+
+<div class="step">
+  <h2>4 · Iterations &amp; reflections <span class="t">2:48 – 3:47</span></h2>
+  <p class="screen">Screen: <b>panel 4</b> — the two rankings side by side</p>
+  <ul>
+    <li><b>What worked:</b> making the score explain itself. A hidden command prints the
+        arithmetic behind any ranking — every factor, its weight, what it contributed.</li>
+    <li class="say"><q>Every real bug in this project was found by reading that table next to a
+        ranking. Not one was caught by a test.</q> <span class="beat">← pause here</span></li>
+    <li><b>The example:</b> a pattern looking for <i>exploit</i> could not match <i>exploited</i>
+        — <b>one letter of English grammar</b>.
+      <ul>
+        <li>$62m hack → <b>0.00</b> on the heaviest factor → ranked <b>7th</b>, below an NFT press release</li>
+        <li>after the fix → <b>2nd</b></li>
+      </ul>
+    </li>
+    <li><b>What I'd improve:</b> the eight weights are <b>reasoned, not fitted</b>. Every one
+        defensible; none measured.
+      <ul>
+        <li>would log every ranking against which stories readers actually open, and fit them —
+            turning eight arguments into eight numbers</li>
+      </ul>
+    </li>
+    <li>“Thank you for watching.”</li>
+  </ul>
+</div>
+
+<div class="foot">
+  <div>
+    <h3>Before you record</h3>
+    <ul>
+      <li>Bot running; <code>/digest</code> already sent so there's something to scroll back to</li>
+      <li>Telegram <b>light theme</b>, ⌘+ twice · browser fullscreen, ⌘0</li>
+      <li>Clear failed attempts out of the chat</li>
+      <li>Only two apps open, so ⌘Tab is predictable</li>
+    </ul>
+  </div>
+  <div>
+    <h3>If you're running long — cut in this order</h3>
+    <ol>
+      <li>the depth sub-bullets in step 2 &nbsp;<span style="color:#6d7f8c">(~18s)</span></li>
+      <li>“Kimi K3 → Grok 4.3 fallback” in step 3 &nbsp;<span style="color:#6d7f8c">(~10s)</span></li>
+      <li>“below an NFT press release” in step 4 &nbsp;<span style="color:#6d7f8c">(~3s)</span></li>
+    </ol>
+    <p style="margin:3pt 0 0"><b>Only 15s of slack.</b> If you speak slowly, take cut 1
+    <i>before</i> you record, not after.</p>
+  </div>
+</div>
+
+</body>
+</html>
