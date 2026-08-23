@@ -8,27 +8,27 @@ morning. Each reader picks which subjects reach them and whether they want
 figures or analysis; the formula shifts to match, and stays inspectable.
 
 The point is not that an AI summarises the news. The point is **which
-stories it picks, and that you can audit the choice**. Ask the bot `/why 1`
+stories it picks, and that you can audit the choice**. Ask the bot `/why 2`
 and it shows you the arithmetic.
 
 ```
-🔍 Why #1 scored 0.808
+🔍 Why #2 scored 0.719
 
 Curve Finance exploited for $62 million in reentrancy attack
-DL News · crypto
+DL News · 1h ago
 
 factor            raw     wt   adds
 ───────────────────────────────────
-keyword          1.00  0.200  0.200
-source_quality   0.95  0.200  0.190
-recency          0.94  0.200  0.188
-topicality       1.00  0.140  0.140
-numeric          1.00  0.065  0.065
-asset            0.50  0.050  0.025
-analysis         0.00  0.065  0.000
-source_count     0.00  0.080  0.000
+keyword          1.00  0.185  0.185
+source_quality   0.95  0.185  0.176
+recency          0.94  0.185  0.173
+topicality       1.00  0.130  0.130
+numeric          0.35  0.100  0.035
+asset            0.50  0.040  0.020
+source_count     0.00  0.075  0.000
+analysis         0.00  0.100  0.000
 ───────────────────────────────────
-TOTAL                         0.808
+TOTAL                         0.719
 
 What drove it
 • keyword — tier-1 keyword 'exploit'
@@ -119,10 +119,10 @@ total constant means changing the preference re-weights *style* without
 quietly changing how much subject matter, freshness or source reputation
 count.
 
-The interesting number is **`source_count` at 0.080**. Corroboration is
+The interesting number is **`source_count` at 0.075**. Corroboration is
 real evidence, so it earns a place — but weight it heavily and a big story
 wins every slot for three days running, because every outlet keeps
-re-reporting it. Capping its influence at 8% buys the corroboration signal
+re-reporting it. Capping its influence under 8% buys the corroboration signal
 without letting yesterday's news squat on today's digest. There is a test
 that pins this: a stale, low-quality item carried by nine outlets must
 still lose to fresh tier-1 reporting from a top desk.
@@ -206,7 +206,7 @@ bet a demo on.
 ### Tests
 
 ```bash
-python -m pytest tests/ -q      # 147 tests, no network, no API key
+python -m pytest tests/ -q      # 148 tests, no network, no API key
 ```
 
 The whole ranking path is deterministic, so a bad ranking is reproducible

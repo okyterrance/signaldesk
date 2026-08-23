@@ -1,7 +1,7 @@
-"""Stage 2 — the seven-factor weighted score.
+"""Stage 2 — the eight-factor weighted score.
 
 Every surviving item gets one number in [0, 1]. The number is a weighted
-sum of seven independent factors, each normalised to [0, 1] first so the
+sum of eight independent factors, each normalised to [0, 1] first so the
 weights mean what they look like they mean.
 
     score = sum(weight_i * factor_i) / sum(weight_i)
@@ -12,27 +12,29 @@ it is the difference between a ranking you trust and one you don't.
 
 --- Why these weights ---
 
-keyword (0.222) and recency (0.222) lead because they answer the two
+keyword (0.185) and recency (0.185) lead because they answer the two
 questions that dominate whether a story matters this morning: is the
 subject consequential, and did it happen recently enough to still be
 tradeable.
 
-source_quality (0.220) is nearly as heavy. A claim in the FT and the same
+source_quality (0.185) is level with them. A claim in the FT and the same
 claim on an SEO farm are not the same claim.
 
-category (0.145) is a coarse topical gate from feed tags.
+topicality (0.130) is a coarse topical gate from feed tags.
 
-source_count (0.080) is deliberately *light*, and this is the least
+numeric and analysis (0.100 each at the balanced default) split a fixed
+0.200 style budget that the reader controls — see DEPTH_SPLITS below.
+
+source_count (0.075) is deliberately *light*, and this is the least
 obvious choice in the table. Corroboration across outlets is genuine
 evidence, so the factor earns its place -- but weight it heavily and a
 big story wins every slot for three days running, because every outlet
-keeps re-reporting it. Capping its influence at 8% buys corroboration
+keeps re-reporting it. Capping its influence under 8% buys corroboration
 signal without letting yesterday's news squat on today's digest.
 
-numeric (0.056) and asset (0.056) are tie-breakers. A headline carrying a
-concrete figure is more actionable than one that doesn't; a headline
-about BTC is more relevant to this audience than one about a microcap.
-Neither should ever outrank subject matter, hence the small weights.
+asset (0.040) is a tie-breaker: a headline about BTC is more relevant to
+this audience than one about a microcap, but it should never outrank
+subject matter, hence the small weight.
 """
 from __future__ import annotations
 
