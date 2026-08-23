@@ -9,43 +9,48 @@
   body {
     font-family: "Charter", "Georgia", "Times New Roman", serif;
     font-size: 11pt;           /* the Expo minimum; do not go below */
-    line-height: 1.23;
+    line-height: 1.13;
     color: #14161a;
     margin: 0;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
   h1 { font-size: 16pt; margin: 0 0 1pt; letter-spacing: -0.2pt; }
-  .sub { font-size: 10.5pt; color: #4a5058; margin: 0 0 5pt; }
+  .sub { font-size: 10.5pt; color: #4a5058; margin: 0 0 4pt; }
   .rule { height: 2px; background: #14161a; margin: 0 0 6pt; }
   h2 {
-    font-size: 11pt; margin: 6pt 0 2pt; text-transform: uppercase;
+    font-size: 11pt; margin: 4pt 0 1.5pt; text-transform: uppercase;
     letter-spacing: 0.6pt; color: #0b3d66;
   }
-  p { margin: 0 0 3pt; text-align: justify; }
-  ul { margin: 0 0 4pt; padding-left: 14pt; }
-  li { margin-bottom: 1.5pt; }
+  p { margin: 0 0 2.5pt; text-align: justify; }
   b { color: #000; }
+  i { color: #14161a; }
   code {
     font-family: "SF Mono", "Menlo", "Consolas", monospace;
     font-size: 9.5pt; background: #eef1f4; padding: 0 2pt; border-radius: 2px;
   }
-  .cols { display: flex; gap: 9pt; align-items: flex-start; }
+  .cols { display: flex; gap: 9pt; align-items: flex-start; margin-top: 2pt; }
   .flow {
     flex: 1 1 0; background: #f5f7f9; border-left: 2.5pt solid #0b3d66;
-    padding: 5pt 7pt; font-size: 9.5pt; line-height: 1.22;
+    padding: 4pt 7pt; font-size: 9.3pt; line-height: 1.14;
   }
   .flow div { margin-bottom: 1pt; }
   .flow .stage { font-weight: bold; }
   .flow .note { color: #4a5058; padding-left: 9pt; }
   .why {
-    flex: 0 0 47%; background: #14161a; color: #e8ecf0;
+    flex: 0 0 46%; background: #14161a; color: #e8ecf0;
     font-family: "SF Mono", "Menlo", "Consolas", monospace;
-    font-size: 8.2pt; line-height: 1.17; padding: 5pt 7pt; border-radius: 2px;
+    font-size: 7.8pt; line-height: 1.11; padding: 4pt 7pt; border-radius: 2px;
     white-space: pre;
   }
   .why .hl { color: #6fd3a0; }
   .why .dim { color: #8b95a1; }
+  .prompt {
+    background: #f5f7f9; border-left: 2.5pt solid #8b95a1;
+    padding: 3.5pt 7pt; margin: 2.5pt 0 3pt;
+    font-family: "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: 8.5pt; line-height: 1.24; color: #23282e;
+  }
   .footer {
     margin-top: 4pt; padding-top: 2.5pt; border-top: 0.5pt solid #c3cad2;
     font-size: 9pt; color: #4a5058;
@@ -56,85 +61,94 @@
 
 <h1>SignalDesk — a news ranking engine that shows its work</h1>
 <p class="sub">A Telegram bot that reads 12 crypto and macro feeds, ranks every story with an auditable
-seven-factor score, and writes the briefing. Polymer Tech Expo 2026.</p>
+eight-factor score, and lets a language model write only what the algorithm already chose. Polymer Capital
+Tech Expo 2026.</p>
 <div class="rule"></div>
 
-<h2>Problem</h2>
+<h2>Problem statement</h2>
 <p>Twelve newsfeeds produce a few hundred crypto and macro headlines a day — mostly listicles,
 price-prediction bait, and the same story told six times by six outlets. The signal is in there; the cost
-of finding it is forty minutes every morning.</p>
-<p>The obvious fix — hand it to a language model and ask for a summary — fails in a specific way.
-<b>The model's selection is unauditable.</b> When it leads with the wrong story you cannot find out why,
-cannot reproduce it, and have nothing to correct. You have traded forty minutes of reading for a black box
-you must trust on a decision that matters.</p>
+of finding it is forty minutes every morning, and the reader who most needs a fast multi-angle view of the
+market is exactly the one who cannot spend it.</p>
+<p>The obvious fix — hand the pile to a language model — fails in a specific way. <b>The model's selection
+is unauditable.</b> When it leads with the wrong story you cannot find out why, cannot reproduce it, and
+have nothing to correct. Forty minutes of reading has been traded for a black box.</p>
 
-<h2>Solution</h2>
+<h2>Solution overview</h2>
 <p>Split the job at its natural seam. <b>An algorithm decides what matters</b> — deterministic,
-inspectable, unit-tested. <b>A model writes it up</b> — it receives the already-ranked list and is told in
-its system prompt that selection is not its job: it cannot re-order, add stories, or introduce a number
-absent from the input.</p>
+inspectable, covered by 148 offline tests. <b>A model writes it up</b> — it receives the already-ranked
+list and is told in its system prompt that selection is not its job: it cannot re-order, add stories, or
+introduce a number absent from the input. Three commands: <code>/digest</code> (the briefing, pushed
+automatically at 08:30), <code>/top</code> (the live ranking with scores), and <code>/weights</code> (five
+subject filters plus a numbers-vs-analysis depth setting that visibly moves two weights in the formula).
+Between briefings it re-checks every 15 minutes and pushes anything above threshold at once.</p>
 
 <div class="cols">
   <div class="flow">
     <div class="stage">0 · hard filters</div>
-    <div class="note">clickbait, bare price ticks, macro noise — binary, so a listicle cannot out-vote its way back in</div>
+    <div class="note">clickbait, price ticks, off-topic macro — binary</div>
     <div class="stage">1 · dedupe</div>
-    <div class="note">TF-IDF ∪ rare-entity overlap, grown to transitive closure</div>
-    <div class="stage">2 · seven-factor score</div>
-    <div class="note">keyword ·222 recency ·222 source_quality ·220 category ·145 corroboration ·080 numeric ·056 asset ·056</div>
+    <div class="note">TF-IDF cosine + rare-entity overlap, transitive closure</div>
+    <div class="stage">2 · eight-factor score</div>
+    <div class="note">keyword ·185 recency ·185 source ·185 topicality ·130 numeric ·100 analysis ·100 corroboration ·075 asset ·040</div>
     <div class="stage">3 · adaptive top-N</div>
-    <div class="note">quality gate first, per-subject diversity cap, fixed count only as a floor</div>
+    <div class="note">quality gate, per-subject diversity cap, count as a floor; crypto and macro in separate pools</div>
     <div class="stage">4 · LLM write-up → Telegram</div>
-    <div class="note">daily digest, threshold alerts, live commands</div>
+    <div class="note">08:30 digest, threshold alerts, live commands</div>
   </div>
-  <div class="why"><span class="hl">/why 1</span> <span class="dim">— "Curve Finance exploited for $62m"</span>
+  <div class="why"><span class="hl">/why 1</span> <span class="dim">— "Curve exploited for $62m"</span>
 
 factor            raw     wt   adds
 ───────────────────────────────────
-keyword          1.00  0.222  0.222
-source_quality   0.95  0.220  0.209
-recency          0.94  0.222  0.208
-category         1.00  0.145  0.145
-numeric          1.00  0.056  0.056
-asset            0.50  0.056  0.028
-source_count     0.00  0.080  0.000
+keyword          1.00  0.185  0.185
+source_quality   0.95  0.185  0.176
+recency          0.94  0.185  0.173
+topicality       0.50  0.130  0.065
+numeric          0.35  0.100  0.035
+asset            0.50  0.040  0.020
+analysis         0.00  0.100  0.000
+source_count     0.00  0.075  0.000
 ───────────────────────────────────
-TOTAL                         <span class="hl">0.867</span></div>
+TOTAL                         <span class="hl">0.654</span></div>
 </div>
 
-<p>Because every score carries its breakdown, <code>/why n</code> answers "why is this at the top" with
-arithmetic rather than a model's self-explanation. A wrong lead story traces to a factor weight — visible,
-testable, fixable — instead of to a sampling temperature.</p>
-
 <h2>Use of AI</h2>
-<p><b>In the product:</b> Moonshot Kimi K3 with xAI Grok 4.3 as fallback, via TokenRouter's
-OpenAI-compatible endpoint. The chain is deliberately cross-vendor: two models from one provider are a
-retry, not a fallback. The system prompt forbids any claim not grounded in the supplied titles and any
-number absent from the input. When every provider fails, the bot emits template output built from the
-top-ranked headlines verbatim — degraded, honest, still correctly ordered, because the ranking never
-depended on the model. <b>Building it:</b> Claude Code, as a pair programmer under a same-day deadline.</p>
+<p><b>Built with Claude Code</b> as a pair programmer throughout — scaffolding, the scoring module, and
+every test in the suite. <b>In the product:</b> Moonshot <b>Kimi K3</b> with xAI <b>Grok 4.3</b> as
+fallback, through TokenRouter's OpenAI-compatible endpoint — cross-vendor on purpose, because two models
+from one provider are a retry, not a fallback. <b>Free, unauthenticated data:</b> 12 RSS
+feeds — CoinDesk, The Block, DL News and Unchained on crypto; FT, Bloomberg, CNBC and the ECB press feed on
+macro — plus the <b>Binance</b> 24h ticker and the <b>alternative.me Fear &amp; Greed</b> index. The system
+prompt enforces the boundary:</p>
+<p class="prompt">“You will be given a numbered list of stories that has ALREADY been selected and ranked
+by a scoring engine. <b>Selection is not your job.</b> Do not re-order them… <b>Never invent a number.</b>
+Prices, percentages, and dollar amounts may only appear if they appear in the input… The headline MUST be
+about story 1 — choosing a different story is a selection decision.”</p>
+<p>When every provider fails, the bot emits template output from the top-ranked headlines verbatim —
+degraded, honest, still correctly ordered: the ranking never depended on the model.</p>
 
-<h2>Impact</h2>
+<h2>Impact &amp; value</h2>
 <p>Forty minutes of triage becomes a thirty-second read, and — unlike a summariser — the output can be
-challenged. Marginal cost is one LLM call per digest: the twelve feeds, the Binance ticker and the Fear
-&amp; Greed index are free and unauthenticated, so the data layer costs nothing to run or to scale. 98
-offline tests cover the ranking path with no network and no API key.</p>
+challenged: <code>/why n</code> answers “why is this at the top” with arithmetic, so a wrong lead story
+traces to a factor weight, not to a sampling temperature. Marginal cost is one LLM call per digest and the
+data layer is free, so it costs nothing to scale — which makes the next step viable: a <b>free subscription
+site</b> where readers pick their subjects and receive the same push, free tier as the growth channel
+rather than a loss leader.</p>
 
 <h2>Reflections</h2>
-<p>Making the score explain itself changed how I built it. <code>/why</code> began as a nice-to-have and
-became the debugging tool — <b>every real bug here was found by reading the factor table beside a ranking,
-not by a test.</b> A <code>\b(exploit)\b</code> regex could not match <i>"exploited"</i>, so a $62m
-protocol hack scored as untiered noise and ranked 7th.</p>
-<p>The instructive one was self-inflicted. A fix for a missed duplicate <i>over</i>-merged on its first
-live run, because <code>ETF</code> passes a capitalisation test and read as a rare proper noun — collapsing
-unrelated stories that shared only "spot" and "ETF". The repair was a rarity threshold that <b>scales with
-batch size</b>: three mentions in eight headlines is a third of the feed; three in forty-one is genuinely
-rare. Both bugs were invisible in aggregate and obvious once the intermediate state was on screen — the
-argument for the whole design. <b>Next:</b> the weights are reasoned, not fitted — logging rankings
-against what readers actually open would make them measured.</p>
+<p>Making the score explain itself changed how I built the whole thing. <code>/why</code> began as a
+nice-to-have and became the debugging tool — <b>every real bug here was found by reading the factor table
+beside a ranking, and not one was caught by a test.</b> A <code>\b(exploit)\b</code> pattern could not
+match <i>“exploited”</i>, so a $62m protocol hack scored 0.00 on the heaviest factor and ranked 7th of 8;
+after the fix, 1.00 and 2nd. Three later bugs shared one habit — adding a broad word to a category and
+checking only that the intended headline matched — fixed by bidirectional tests.</p>
+<p><b>Given more time:</b> the eight weights are <b>reasoned, not fitted</b> — every one defensible, none
+measured. Logging each ranking against which stories readers open would turn eight arguments into eight
+numbers. The classifier is regex over open-ended language, so it will keep having gaps: maintained, never
+finished.</p>
 
 <div class="footer">
-Source, tests and full commit history: <b>github.com/okyterrance/signaldesk</b> &nbsp;·&nbsp;
+Source, 148 tests and full commit history: <b>github.com/okyterrance/signaldesk</b> &nbsp;·&nbsp;
 Educational demonstration; not financial advice.
 </div>
 

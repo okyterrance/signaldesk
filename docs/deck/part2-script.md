@@ -1,201 +1,161 @@
-# Part 2 — Project Showcase · Speaking Script
+# PART 2 · Project Showcase — one-take screen recording
 
-**Target: 4:30.** ~660 words at a steady 150 wpm, with pauses at the demo slides.
-The same text is in each slide's speaker notes, so you can read from Presenter View.
+**Budget.** Part 1 ran **3:00**; the cap is **7:00**. This script measures
+**521 spoken words = 3:28** at 150 wpm. Add ~18s of on-camera waiting while the
+bot replies in Step 2 and it lands at **~3:46** — **total 6:46**, with 14
+seconds of slack. That slack is thin: if you tend to speak slowly, take the
+first cut in the delivery notes before you record, not after.
 
-Timings are cumulative. If you are running long, the slide marked **CUT** below is
-the one to drop — it costs the least.
+**Format.** No face. One continuous screen recording, voice over. Two windows
+only:
 
----
-
-## Slide 1 · Title — SignalDesk `0:00 – 0:25`
-
-> My project is **SignalDesk** — a Telegram bot that reads twelve crypto and macro
-> news feeds, ranks every story with an eight-factor score, and writes a daily
-> briefing.
->
-> The interesting part isn't that an AI summarises the news. It's **which stories
-> it picks** — and the fact that you can audit that choice.
-
----
-
-## Slide 2 · The problem `0:25 – 1:00`
-
-> The problem is volume. Twelve feeds produce about a hundred and fifty headlines
-> a day, and most of it is noise — listicles, price predictions, and the same
-> story told six times by six outlets.
->
-> The obvious fix is to hand it all to a language model. But that fails in a
-> specific way: **the model's selection is unauditable.** When it leads with the
-> wrong story, you can't find out why, you can't reproduce it, and you have
-> nothing to correct.
->
-> You've traded forty minutes of reading for a black box.
-
----
-
-## Slide 3 · The core decision `1:00 – 1:35`
-
-> So I split the job at its natural seam.
->
-> **An algorithm decides what matters.** Deterministic, unit-tested — same inputs,
-> same ranking, every time.
->
-> **The model only writes it up.** It receives the already-ranked list, and its
-> system prompt tells it explicitly that selection is not its job. It can't
-> re-order, can't add stories, can't introduce a number that wasn't in the input.
->
-> That boundary is what makes the output auditable. When the briefing leads with
-> the wrong story, the fault is in a **factor weight** — something I can see, test
-> and fix — instead of in a sampling temperature.
-
----
-
-## Slide 4 · What arrives `1:35 – 2:00`  📷
-
-> Here's what actually arrives. *(gesture to screenshot)* A written briefing every
-> morning at half past eight, with the ranked sources underneath it.
->
-> And between briefings the bot polls every fifteen minutes. Anything above the
-> threshold gets pushed immediately, on its own — because a digest answers *what
-> happened yesterday*, and an alert answers *this can't wait*.
-
----
-
-## Slide 5 · The pipeline `2:00 – 2:30`
-
-> The pipeline is seven stages, and each one is separately testable.
->
-> Fetch. Hard-filter the clickbait and the bare price ticks — binary, so a listicle
-> can't out-vote its way back in. Dedupe, because twelve feeds covering one market
-> means the same story arrives six times. Classify, score, select, then write and send.
->
-> One detail worth calling out: crypto and macro are scored in **separate pools**.
-> Pool them together and a Fed decision loses on the asset factor by construction —
-> it names no token — and macro quietly disappears from the briefing.
-
----
-
-## Slide 6 · The eight factors `2:30 – 3:00`
-
-> Here's the formula. Eight factors, each normalised to zero-to-one, then weighted.
->
-> They're a tuned set — change one and you shift the meaning of all the others. The
-> most counter-intuitive is corroboration, at only seven and a half percent.
->
-> Corroboration is real evidence, so it earns a place. But weight it heavily and
-> one big story wins every slot for **three days running**, because every outlet
-> keeps re-reporting it. Capping it low buys the signal without letting yesterday's
-> news squat on today's briefing.
-
----
-
-## Slide 7 · `/why` `3:00 – 3:25`  📷
-
-> This command is the heart of the project. Ask it why story one is first, and it
-> prints the arithmetic — every factor, its raw verdict, its weight, and what it
-> contributed.
->
-> That's deliberately **not** the model explaining itself. Asking a language model
-> why it chose something gets you a plausible story, not the actual cause. This is
-> the actual cause. And it adds up.
-
----
-
-## Slide 8 · The reader's controls `3:25 – 3:50`  📷  **← CUT if running long**
-
-> The reader also owns part of the formula.
->
-> Five subject categories, and switching one off is a hard filter — "only show me
-> security news" isn't a request to rank macro *slightly* lower.
->
-> And depth. Two of the eight factors share a fixed budget that the reader splits.
-> Because the total never changes, choosing a style never quietly alters how much
-> subject matter or freshness count.
-
----
-
-## Slide 9 · Use of AI `3:50 – 4:15`
-
-> So where is the AI, and where is it deliberately not?
->
-> In the product: **Moonshot's Kimi K3**, falling back to **xAI's Grok 4.3**. The
-> chain is cross-vendor on purpose — two models from one provider give you a retry,
-> not a fallback, because an outage takes out both.
->
-> Building it: **Claude Code**, as a pair programmer throughout.
->
-> And this is the system prompt that enforces the boundary — the list is already
-> ranked, selection is not your job, never invent a number. When every provider
-> fails, the bot falls back to template output from the top-ranked headlines.
-> Degraded, honest, and still correctly ordered — because the ranking never
-> depended on the model.
-
----
-
-## Slide 10 · The bug the factor table found `4:15 – 4:45`  📷
-
-> Now the part I'd most like you to take away.
->
-> That transparency command started as a nice-to-have. It became the debugging
-> tool — **every real bug in this codebase was found by reading the factor table
-> next to a ranking, and not one was caught by a test.**
->
-> The clearest example: a regex looking for the word *exploit* could not match
-> *exploited*. So a sixty-two-million-dollar protocol hack scored **zero** on the
-> keyword factor — untiered noise — and ranked seventh. After the fix it scores
-> one, top tier, and ranks second.
->
-> Invisible in aggregate. Obvious the moment the intermediate state was on screen.
-
----
-
-## Slide 11 · Reflections `4:45 – 5:00`
-
-> What worked was making the score explain itself. It changed how I built the whole
-> thing, and it's the decision I'd repeat.
->
-> What I'd change: the weights are **reasoned, not fitted**. Every one is
-> defensible; none is measured. The next step is logging each ranking against which
-> stories readers actually open, and fitting them — turning eight arguments into
-> eight numbers.
->
-> And I'd be honest that the classifier will keep having gaps. It's regular
-> expressions over open-ended language — I've fixed five rounds of them, each one
-> found by looking at real output. That's not a thing that finishes. Thank you.
-
----
-
-# Screenshots to take
-
-Take these on your own machine with the bot running, then drop each image on top of
-its dashed placeholder in the deck and delete the placeholder box.
-
-| Slide | What to capture | How |
+| Window | What | When |
 |---|---|---|
-| **4** | Telegram — the daily briefing | `/digest`. Capture the headline, several bullets, and the ranked Sources list. Two stitched screenshots is fine. |
-| **7** | Telegram — `/why 1` | Run `/top` first, then `/why 1`. The factor table must be legible — this is the most important image in the deck. |
-| **8** | Telegram — `/weights` | The settings screen with the five toggles, the depth buttons, and the weight table below them. |
-| **10** | The ranking flip | `python scripts/show_regex_bug.py` — it rebuilds the broken matcher and prints both rankings side by side. One terminal window is the whole slide. |
+| **A · Browser** | `docs/onepager.html`, fullscreen (`F11` / `⌃⌘F`) | Steps 1, 3, 4 |
+| **B · Telegram** | your chat with the bot, light theme, zoomed in | Step 2 |
 
-**Two things that make the screenshots read on video**
+The one-pager is built as **four panels, one screenful each** — so moving on is
+one `Page Down`, never a hunt for the right scroll position.
 
-1. Use Telegram's **light** theme — dark screenshots lose detail after video compression.
-2. Zoom the Telegram window before capturing (`Cmd +`) so the mono factor table is
-   large. Legibility beats fitting everything in one frame.
-
-**Optional extra credit:** a short screen recording instead of a static image on
-slide 4 or 7 — an actual command going out and the reply arriving is more convincing
-than any still.
+**Before you hit record**
+1. Bot running, `/digest` already sent in the chat so there's something to
+   scroll back to.
+2. Telegram: light theme, `⌘ +` twice. Browser: fullscreen, `⌘ 0` to reset zoom.
+3. Clear the chat of failed attempts — you'll be scrolling through it live.
+4. `⌘ Tab` between exactly two apps, so the switch is instant and predictable.
 
 ---
 
-# Notes on delivery
+## STEP 1 · What I built `0:00 – 0:36`
 
-- **Slides 3 and 10 carry the argument.** If you rehearse only two, rehearse those.
-- Say the numbers out loud — "sixty-two million", "seven and a half percent". Read
-  aloud they land; skimmed off a slide they don't.
-- On slide 10, pause after "*and not one was caught by a test*". That sentence is
-  the strongest thing in the whole submission — give it a beat.
-- Don't apologise for the limitations on slide 11. Stating them plainly reads as
-  engineering judgement; hedging around them reads as uncertainty.
+*Screen: one-pager, panel 1.*
+
+> This is **SignalDesk**.
+>
+> It's for someone who wants to understand a market quickly, from several
+> angles they choose themselves — instead of spending forty minutes across a
+> dozen news sites every morning.
+>
+> Right now it's a Telegram bot: twelve feeds in, one ranked briefing out,
+> pushed automatically every morning.
+>
+> Where it's going is a **free subscription site** — you subscribe, pick your
+> subjects, and the briefing comes to you. Free is the point: the entire data
+> layer costs nothing to run, so the free tier *is* the growth channel.
+
+*`Page Down` →*
+
+---
+
+## STEP 2 · How it works — the reader's side `0:36 – 1:41`
+
+*Screen: one-pager, panel 2 — read the four lines off it, then `⌘ Tab` to Telegram.*
+
+> Three commands, and that's the whole surface.
+
+**→ Switch to Telegram. Scroll up to this morning's 08:30 digest.**
+
+> This is `/digest` — and I didn't ask for it. It arrived on its own at half
+> past eight. A headline, one bullet per story, and underneath, the **ranked
+> source list** with the score that put each story there.
+
+**→ Type `/top`, send.**
+
+> `/top` is the same engine on demand, when you don't want to wait for
+> tomorrow. Same ranking, live.
+
+**→ Type `/weights`, send. Tap one subject off, then tap a depth button.**
+
+> `/weights` is where the reader takes control. **Five subjects** — security,
+> regulation, institutional flows, macro, protocol. Switching one off is a
+> **hard filter**, not a hint.
+>
+> And a **depth setting**: hard numbers, or analysis. Choosing one physically
+> moves two weights in the formula — and it shows you the two numbers that
+> changed.
+
+**→ `⌘ Tab` back to the browser, `Page Down`.**
+
+---
+
+## STEP 3 · How AI was used `1:41 – 2:48`
+
+*Screen: one-pager, panel 3 — the factor table on the left, sources and system
+prompt on the right.*
+
+> Now the part that matters most.
+>
+> **The data** is twelve RSS feeds, six crypto and six macro, prices from
+> **Binance's public API**, sentiment from the **Fear and Greed index.** All
+> free, no keys.
+>
+> **The ranking** is these eight factors — how consequential the subject is,
+> how recent, how good the outlet, how many outlets corroborate it, how many
+> hard figures it carries. Weighted, normalised to zero-to-one.
+>
+> That is **an algorithm, not a model.** Same input, same ranking, every time,
+> covered by **148 offline tests.**
+>
+> **The model does exactly one job: it writes up the list the algorithm already
+> chose.** That's the system prompt on the right — *already ranked; selection
+> is not your job; never invent a number.*
+>
+> Two models, **Kimi K3** falling back to **Grok 4.3**. Built with **Claude
+> Code.**
+>
+> The reason for the split: if a model picks the stories and picks wrong,
+> **you can't find out why.** Here, a wrong lead story is a wrong factor
+> weight — something I can see, test, and fix.
+
+*`Page Down` →*
+
+---
+
+## STEP 4 · Iterations & reflections `2:48 – 3:47`
+
+*Screen: one-pager, panel 4 — the two rankings side by side.*
+
+> **What worked** was making the score explain itself. A hidden command prints
+> the arithmetic behind any ranking — every factor, its weight, what it
+> contributed. It became the debugging tool: **every real bug in this project
+> was found by reading that table next to a ranking. Not one was caught by a
+> test.**
+>
+> The clearest one: a pattern looking for the word *exploit* could not match
+> *exploited* — one letter of English grammar. So a
+> **sixty-two-million-dollar hack** scored **zero** on the heaviest factor and
+> ranked seventh, below an NFT press release. After the fix, second.
+>
+> *(beat)*
+>
+> **What I'd improve:** the eight weights are **reasoned, not fitted.** I can
+> defend every one of them; none of them is measured. Given more time I'd log
+> every ranking against which stories readers actually open, and fit the
+> weights to that — turning eight arguments into eight numbers.
+>
+> Thank you for watching.
+
+---
+
+# Delivery notes
+
+**Say the numbers out loud** — "sixty-two million", "one hundred and forty-eight
+tests". Read aloud they land; skimmed off a slide they don't.
+
+**Pause after** *"Not one was caught by a test."* It's the strongest sentence in
+the submission. Give it a full beat before moving on.
+
+**Don't hedge the limitation** in Step 4. Stated plainly it reads as engineering
+judgement; apologised for, it reads as doubt.
+
+**If a command is slow on camera**, keep talking — the next sentence is always
+safe to say while the reply lands. Don't narrate the waiting.
+
+**If you overrun 7:00**, cut in this order:
+1. the depth-setting paragraph in Step 2 *(~18s)*
+2. "Two models… cross-vendor on purpose" in Step 3 *(~10s)*
+3. "below an NFT press release" in Step 4 *(~3s)*
+
+**One-take insurance:** record Steps 1–2 and Steps 3–4 as two takes if the
+single pass keeps breaking. A cut at the `Page Down` between panel 2 and panel 3
+is invisible — same window, same zoom.

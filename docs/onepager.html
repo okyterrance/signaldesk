@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SignalDesk — Part 2 screen aid</title>
+<style>
+  :root {
+    --ink:   #12151a;
+    --dim:   #5b636e;
+    --line:  #d8dee6;
+    --blue:  #0b3d66;
+    --wash:  #f4f7fa;
+    --green: #0f7a4d;
+    --red:   #b3261e;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    background: #fff;
+    font-size: 21px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Each panel is one screenful: scroll = 4 stops, nothing half-cut on video. */
+  .panel {
+    min-height: 100vh;
+    padding: 4.5vh 6vw 4vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .step {
+    font-size: 15px; font-weight: 700; letter-spacing: 2.4px;
+    text-transform: uppercase; color: var(--blue); margin-bottom: 10px;
+  }
+  .step span { color: var(--dim); font-weight: 500; letter-spacing: 1.4px; }
+  h1 { font-size: 58px; line-height: 1.05; letter-spacing: -1.6px; margin-bottom: 6px; }
+  h2 { font-size: 40px; line-height: 1.12; letter-spacing: -0.9px; margin-bottom: 18px; }
+  .lede { font-size: 25px; color: var(--dim); margin-bottom: 30px; max-width: 27em; }
+  p { max-width: 34em; margin-bottom: 12px; }
+  b { font-weight: 700; }
+  .cards { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; }
+  .card {
+    flex: 1 1 240px; background: var(--wash); border-left: 4px solid var(--blue);
+    padding: 16px 20px; font-size: 19px; line-height: 1.4;
+  }
+  .card h3 { font-size: 20px; margin-bottom: 5px; }
+  .card .k { display: block; font-size: 14px; letter-spacing: 1.6px;
+             text-transform: uppercase; color: var(--dim); margin-bottom: 7px; }
+  code, .mono {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.86em;
+  }
+  table { border-collapse: collapse; font-size: 19px; margin-top: 6px; }
+  th, td { padding: 5px 20px 5px 0; text-align: left; }
+  th { font-size: 14px; letter-spacing: 1.4px; text-transform: uppercase;
+       color: var(--dim); border-bottom: 1px solid var(--line); }
+  td.n { font-family: "SF Mono", Menlo, monospace; text-align: right; padding-right: 26px; }
+  .bar { display: inline-block; height: 10px; background: var(--blue); border-radius: 2px; }
+  .prompt {
+    background: #12151a; color: #e6ebf1; padding: 18px 22px; border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 17px;
+    line-height: 1.5; max-width: 30em; white-space: pre-wrap; margin-top: 6px;
+  }
+  .prompt .hl { color: #7fd8a6; }
+  .flip { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 10px; }
+  .flip > div {
+    flex: 1 1 320px; background: var(--wash); padding: 14px 18px; border-radius: 4px;
+    font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 16px; line-height: 1.65;
+  }
+  .flip .h { font-family: inherit; font-size: 14px; letter-spacing: 1.4px;
+             text-transform: uppercase; color: var(--dim); margin-bottom: 8px;
+             font-weight: 700; }
+  /* the regex is the point — uppercasing it turns \b(exploit)\b into noise */
+  .flip .h code { text-transform: none; letter-spacing: 0; background: none; }
+  .flip .hit { background: #ffe9e6; color: var(--red); font-weight: 700; }
+  .flip .fix { background: #e2f4ea; color: var(--green); font-weight: 700; }
+  .kicker { margin-top: 22px; font-size: 24px; max-width: 30em; }
+  .two { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start; }
+  .two > * { flex: 1 1 340px; }
+  ul { margin: 4px 0 12px 22px; }
+  li { margin-bottom: 6px; max-width: 32em; }
+  .tag { font-size: 15px; color: var(--dim); letter-spacing: 0.4px; }
+</style>
+</head>
+<body>
+
+<!-- ─── 1 ─── positioning ─────────────────────────────────────────── -->
+<section class="panel">
+  <div class="step">Step 1 <span>· What I built</span></div>
+  <h1>SignalDesk</h1>
+  <p class="lede">A market briefing that decides what matters <b>before</b> a
+  language model is allowed to write a word.</p>
+
+  <div class="cards">
+    <div class="card">
+      <span class="k">Who it's for</span>
+      <h3>Fast, multi-angle readers</h3>
+      People who need the market in a minute, from angles they choose —
+      not forty minutes of scrolling twelve sites.
+    </div>
+    <div class="card">
+      <span class="k">Today</span>
+      <h3>A Telegram bot</h3>
+      12 feeds in. One ranked briefing out, pushed at 08:30 every day.
+      Three commands on demand.
+    </div>
+    <div class="card">
+      <span class="k">Where it goes</span>
+      <h3>A free subscription site</h3>
+      Subscribe, pick your subjects, receive the push. Free because the
+      data layer is free — that's the growth channel.
+    </div>
+  </div>
+</section>
+
+<!-- ─── 2 ─── how you use it ──────────────────────────────────────── -->
+<section class="panel">
+  <div class="step">Step 2 <span>· How it works — the reader's side</span></div>
+  <h2>Three commands, and one that runs itself</h2>
+
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>/digest</code></td><td>The written briefing — <b>arrives on its own at 08:30</b>, or on demand</td></tr>
+    <tr><td><code>/top</code></td><td>The live ranking right now, with each story's score</td></tr>
+    <tr><td><code>/weights</code></td><td>Reader controls: 5 subjects, and a depth setting</td></tr>
+    <tr><td class="tag">alerts</td><td>Re-checks every 15 min; anything above 0.72 is pushed immediately</td></tr>
+  </table>
+
+  <p class="kicker">A briefing answers <i>what happened yesterday.</i><br>
+  An alert answers <i>this can't wait.</i></p>
+</section>
+
+<!-- ─── 3 ─── the algorithm + AI ──────────────────────────────────── -->
+<section class="panel">
+  <div class="step">Step 3 <span>· How AI was used</span></div>
+  <h2>The algorithm selects. The model only writes.</h2>
+
+  <div class="two">
+    <div>
+      <table>
+        <tr><th>Factor</th><th>Weight</th><th></th></tr>
+        <tr><td>keyword — how consequential</td><td class="n">0.185</td><td><i class="bar" style="width:74px"></i></td></tr>
+        <tr><td>recency</td><td class="n">0.185</td><td><i class="bar" style="width:74px"></i></td></tr>
+        <tr><td>source quality</td><td class="n">0.185</td><td><i class="bar" style="width:74px"></i></td></tr>
+        <tr><td>topicality</td><td class="n">0.130</td><td><i class="bar" style="width:52px"></i></td></tr>
+        <tr><td>numeric — hard figures</td><td class="n">0.100</td><td><i class="bar" style="width:40px"></i></td></tr>
+        <tr><td>analysis — framing</td><td class="n">0.100</td><td><i class="bar" style="width:40px"></i></td></tr>
+        <tr><td>corroboration</td><td class="n">0.075</td><td><i class="bar" style="width:30px"></i></td></tr>
+        <tr><td>asset relevance</td><td class="n">0.040</td><td><i class="bar" style="width:16px"></i></td></tr>
+      </table>
+      <p class="tag" style="margin-top:10px">Deterministic · 148 offline tests ·
+      <code>numeric</code> + <code>analysis</code> share a fixed budget the reader splits</p>
+    </div>
+
+    <div>
+      <p><b>Data — all free, no keys.</b><br>
+      12 RSS feeds: CoinDesk, The Block, Decrypt, The Defiant, DL News,
+      Unchained · CNBC, FT, Bloomberg, SCMP, CNA, ECB Press.<br>
+      Prices: <b>Binance public API</b>. Sentiment: <b>alternative.me Fear &amp; Greed</b>.</p>
+
+      <p><b>Models.</b> Moonshot <b>Kimi K3</b> → xAI <b>Grok 4.3</b> fallback,
+      cross-vendor on purpose. <b>Built with Claude Code.</b></p>
+
+      <div class="prompt">You will be given a list that has
+<span class="hl">ALREADY been selected and ranked</span>
+by a scoring engine. <span class="hl">Selection is not
+your job.</span> Do not re-order them…
+
+<span class="hl">Never invent a number.</span> Prices and
+dollar amounts may only appear if they
+appear in the input.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 4 ─── iterations ──────────────────────────────────────────── -->
+<section class="panel">
+  <div class="step">Step 4 <span>· Iterations &amp; reflections</span></div>
+  <h2>Every real bug was found by reading the score, not by a test</h2>
+
+  <div class="flip">
+    <div>
+      <div class="h">Before — <code>\b(exploit)\b</code></div>
+      1 &nbsp;0.662 &nbsp;Fed holds rates steady<br>
+      2 &nbsp;0.590 &nbsp;Bitcoin slips below $63,000<br>
+      3 &nbsp;0.555 &nbsp;SEC approves spot Solana ETFs<br>
+      4 &nbsp;0.552 &nbsp;BlackRock staking filing<br>
+      5 &nbsp;0.537 &nbsp;Treasury yields climb<br>
+      6 &nbsp;0.482 &nbsp;Tether mints $2bn USDT<br>
+      <span class="hit">7 &nbsp;0.469 &nbsp;Curve exploited for $62m</span><br>
+      8 &nbsp;0.309 &nbsp;Small NFT marketplace
+    </div>
+    <div>
+      <div class="h">After — stem + inflections</div>
+      1 &nbsp;0.662 &nbsp;Fed holds rates steady<br>
+      <span class="fix">2 &nbsp;0.654 &nbsp;Curve exploited for $62m</span><br>
+      3 &nbsp;0.590 &nbsp;Bitcoin slips below $63,000<br>
+      4 &nbsp;0.555 &nbsp;SEC approves spot Solana ETFs<br>
+      5 &nbsp;0.552 &nbsp;BlackRock staking filing<br>
+      6 &nbsp;0.537 &nbsp;Treasury yields climb<br>
+      7 &nbsp;0.482 &nbsp;Tether mints $2bn USDT<br>
+      8 &nbsp;0.309 &nbsp;Small NFT marketplace
+    </div>
+  </div>
+
+  <p style="margin-top:20px"><b>One letter of English grammar.</b>
+  <code>\b(exploit)\b</code> cannot match <i>“exploited”</i>, so a $62m hack
+  scored <b>0.00</b> on the heaviest factor. Every test was green throughout.</p>
+
+  <p><b>What I'd improve:</b> the eight weights are <b>reasoned, not fitted.</b>
+  Given more time I'd log every ranking against which stories readers open,
+  and fit them — turning eight arguments into eight numbers.</p>
+</section>
+
+</body>
+</html>
