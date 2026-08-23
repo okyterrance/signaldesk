@@ -307,3 +307,19 @@ class TestLongMessagesSplit:
         parts = fmt.split_messages("x" * (fmt.TG_LIMIT * 2 + 5))
         assert len(parts) == 3
         assert all(len(p) <= fmt.TG_LIMIT for p in parts)
+
+
+class TestMarketPanelPrecision:
+    def test_every_figure_carries_two_decimals(self):
+        """Whole dollars printed XRP as "$1", which reads as a broken field."""
+        snap = MarketSnapshot(
+            prices={
+                "BTC": {"price": 76850.0, "change_pct": -2.3},
+                "XRP": {"price": 1.0512, "change_pct": 6.5},
+            },
+            fear_greed=71, fear_greed_label="Greed",
+        )
+        line = fmt.market_line(snap)
+        assert "$76,850.00" in line
+        assert "$1.05" in line and "$1 " not in line
+        assert "2.30%" in line and "6.50%" in line

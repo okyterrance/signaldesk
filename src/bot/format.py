@@ -209,9 +209,13 @@ def market_line(market: MarketSnapshot) -> str:
     rows = []
     for sym, row in market.prices.items():
         arrow = "▲" if row["change_pct"] >= 0 else "▼"
+        # Two decimals on everything. Whole dollars printed XRP at "$1",
+        # which reads as a broken field rather than a price near 1.05,
+        # and a panel where some rows carry cents and others do not looks
+        # unfinished even when every figure is correct.
         rows.append(
-            f"<b>{esc(sym)}</b>  ${row['price']:,.0f}  "
-            f"{arrow} {abs(row['change_pct']):.1f}%"
+            f"<b>{esc(sym)}</b>  ${row['price']:,.2f}  "
+            f"{arrow} {abs(row['change_pct']):.2f}%"
         )
     out = "\n".join(rows)
     if market.fear_greed is not None:
