@@ -142,8 +142,9 @@ the one to drop — it costs the least.
 > next to a ranking, and not one was caught by a test.**
 >
 > The clearest example: a regex looking for the word *exploit* could not match
-> *exploited*. So a sixty-two-million-dollar protocol hack — the biggest story in
-> the set — scored as untiered noise and ranked seventh. After the fix, first.
+> *exploited*. So a sixty-two-million-dollar protocol hack scored **zero** on the
+> keyword factor — untiered noise — and ranked seventh. After the fix it scores
+> one, top tier, and ranks second.
 >
 > Invisible in aggregate. Obvious the moment the intermediate state was on screen.
 
@@ -175,7 +176,7 @@ its dashed placeholder in the deck and delete the placeholder box.
 | **4** | Telegram — the daily briefing | `/digest`. Capture the headline, several bullets, and the ranked Sources list. Two stitched screenshots is fine. |
 | **7** | Telegram — `/why 1` | Run `/top` first, then `/why 1`. The factor table must be legible — this is the most important image in the deck. |
 | **8** | Telegram — `/weights` | The settings screen with the five toggles, the depth buttons, and the weight table below them. |
-| **10** | The ranking flip | Easiest version: `/why` on a story where `keyword = 1.00` fires on an inflected word. Stronger version: terminal `python main.py --demo` output. |
+| **10** | The ranking flip | `python scripts/show_regex_bug.py` — it rebuilds the broken matcher and prints both rankings side by side. One terminal window is the whole slide. |
 
 **Two things that make the screenshots read on video**
 

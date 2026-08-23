@@ -563,14 +563,14 @@ function shotBox(s, x, y, w, h, label, hint) {
     { x: 1.0, y: 2.05, w: 11.3, h: 0.4, margin: 0,
       fontFace: MONO_F, fontSize: 15, bold: true, color: INK });
   s.addText(
-    "So a $62 million protocol hack — the biggest story in the set — scored as untiered noise.",
+    "So a $62 million protocol hack scored ZERO on the keyword factor — untiered noise.",
     { x: 1.0, y: 2.48, w: 11.3, h: 0.36, margin: 0,
       fontFace: BODY_F, fontSize: 13.5, color: BODY });
 
   // before / after
   const pairs = [
-    ["BEFORE", "#7", "0.701", SUNK, LINE, MUTED, INK],
-    ["AFTER",  "#1", "0.867", INK,  INK,  AMBER_LT, PAPER],
+    ["BEFORE", "keyword 0.00", "rank 7", SUNK, LINE, MUTED, INK],
+    ["AFTER",  "keyword 1.00", "rank 2", INK,  INK,  AMBER_LT, PAPER],
   ];
   pairs.forEach(([tag, rank, score, fill, line, accent, txt], i) => {
     const x = 0.6 + i * 3.1;
@@ -580,14 +580,14 @@ function shotBox(s, x, y, w, h, label, hint) {
     });
     s.addText(tag, { x: x + 0.25, y: 3.38, w: 2.3, h: 0.28, margin: 0,
       fontFace: MONO_F, fontSize: 10, bold: true, color: accent, charSpacing: 1.5 });
-    s.addText(rank, { x: x + 0.25, y: 3.7, w: 2.3, h: 0.78, margin: 0,
-      fontFace: MONO_F, fontSize: 38, bold: true, color: accent });
-    s.addText("score " + score, { x: x + 0.25, y: 4.5, w: 2.3, h: 0.32, margin: 0,
-      fontFace: MONO_F, fontSize: 13, color: txt });
+    s.addText(rank, { x: x + 0.2, y: 3.74, w: 2.45, h: 0.5, margin: 0,
+      fontFace: MONO_F, fontSize: 19, bold: true, color: accent });
+    s.addText(score, { x: x + 0.2, y: 4.28, w: 2.45, h: 0.5, margin: 0,
+      fontFace: MONO_F, fontSize: 24, bold: true, color: txt });
   });
 
   shotBox(s, 7.0, 3.2, 5.7, 2.6, "Terminal — the ranking flip",
-    "Screenshot --once output before and\nafter the fix, or the /why table showing\nkeyword = 1.00 on the exploit story.");
+    "Run:  python scripts/show_regex_bug.py\nIt prints both rankings side by side.\nOne terminal window is the whole slide.");
 
   s.addText(
     "Invisible in aggregate. Obvious the moment the intermediate state was on screen — " +
