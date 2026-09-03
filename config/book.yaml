@@ -1,0 +1,126 @@
+# SignalDesk — locked equity book
+#
+# This sits *beside* the crypto/macro Telegram bot, not instead of it. The
+# crypto pipeline (src/fetchers, src/scoring, src/llm/digest.py) is
+# untouched by this file and by src/book/. The engine here never picks a
+# stock: a human writes the thesis, kill and watch conditions below, and
+# any future voting layer is only ever allowed to vote on whether today's
+# news confirms, weakens, or kills a sentence that already exists in this
+# file — never to add one.
+#
+# Locked 2026-09-03, revised after external review (the FX/impairment
+# carve-out on 0175's kill, and the 53%-overseas-revenue exclusion on
+# 1211, are both post-review changes — see the sleeve-level constraints
+# below). Do not add a fifth name, do not turn the two long / two short
+# split into a hedged pair trade, and do not let a model touch this file.
+# Editing thesis/kill/watch is a human, git-tracked action.
+
+sleeve:
+  id: theme_a_china_auto_export
+  as_of: 2026-09-03
+  locked: true
+  statement: >
+    同一因子、四種暴露：出口占比爬升 vs 有無出口閥門 vs 目的地被中國出口擠。
+    兩隻 long 會對「目的地關稅／出口價格戰」同向受傷；本書不對沖這層政策風險，
+    只在 theme_watch 觸發時記錄削弱，不自動 kill 任一名。
+    集團層面的「境外收入」若未拆到汽車分部，不得當汽車主證據
+    ——比亞迪 H1 境外收入約 53%（含電子等非汽車業務），禁用為主錨，
+    主論據一律用月報海外/出口車輛數占比。
+    0175 不含沃爾沃；大眾盯的是權益法下應佔中國 JV 經營結果，
+    不用集團合併營收代表中國生意，集團層面的重組/保時捷雜音不拿來證偽。
+  theme_watch:
+    - 目的地關稅上調、反傾銷裁定生效、或中國官方再發「出口不得內捲」
+      且有懲行案例，三者任一發生即撞中。
+      撞中時記所有四名的共同因子，兩隻 long 記削弱，不自動觸發任一名 kill。
+
+names:
+  "0175.HK":
+    name: 吉利汽車
+    aliases: [Geely, 吉利, "0175", JLYOY]
+    market: HK
+    role: LONG
+    thesis: >
+      總銷幾乎不漲時，出口占比升、國內占比降，且整體毛利率和核心利潤同向改善
+      ——與「靠國內折扣換量」相反。
+      公司未披露出口/國內分段毛利，此為總量推論，不是已證明的因果。
+    kill: >
+      任一即作廢：（1）月報出口占當月總銷連續兩個月低於 30%；或
+      （2）下一個完整季報毛利率較 H1 的 17.9% 回落超過 1.5 個百分點，
+      且未歸於已披露的一次性項目（匯兌/減值）。
+    watch:
+      - 出口占比是否仍 ≥35%、92 萬出口目標有沒有下修。
+      - 核心利潤與淨利是否因匯兌大幅分叉（記口徑，不自動改 thesis）。
+    anchors:
+      h1_2026_gm_pct: 17.9
+      h1_2026_export_units: 474000
+      aug_2026_export_share_pct: 41
+      fy2026_export_target: 920000
+
+  "1211.HK":
+    name: 比亞迪
+    aliases: [BYD, 比亞迪, "1211", "002594"]
+    market: HK
+    role: LONG
+    thesis: >
+      汽車出海已成輛數結構（約四成），國內量可以繼續難看。
+      主證據用月報海外/出口輛數，不用集團「境外收入 53%」
+      （含電子等非汽車業務，見 sleeve 級約束）。
+      匈牙利廠是關稅牆內能否保住這條結構的檢查點。
+    kill: >
+      任一即作廢：（a）官宣塞格德系列量產時點晚於 2026-12-31；或
+      （b）下一個半年報汽車出口/海外輛數占比低於 30%
+      （不用集團境外收入占比）。
+    watch:
+      - 月報海外輛數占比是否守住 40%+、150 萬海外目標有沒有下修。
+      - 塞格德是試產/裝機，還是系列量產已開始。
+    anchors:
+      aug_2026_overseas_share_pct: 43.03
+      h1_2026_overseas_units: 792000
+      fy2026_overseas_target: 1500000
+      hungary_series_deadline: "2026-12-31"
+
+  "2015.HK":
+    name: 理想汽車
+    aliases: ["Li Auto", 理想, 理想汽車, "2015", LI]
+    market: HK
+    role: SHORT
+    thesis: >
+      主場是中國家庭增程/換代盤，沒有可核對的出口閥門；
+      車毛利從約 19% 掉到個位數。
+      交付回升只說明換代，不說明逃離內捲。
+    kill: >
+      兩條獨立路徑，任一即作廢：
+      （1）下一個季報車毛利 ≥15%；或
+      （2）海外交付單獨成行，且占當季總交付 ≥5%。
+    watch:
+      - 車毛利爬向 15%，還是停在約 10%。
+      - 海外是否從計劃變成月報/季報單獨一行
+        （占比仍 &lt;5% 先更新 watch，到 5% 才 kill）。
+    anchors:
+      q2_2026_vehicle_margin_pct: 9.4
+      q2_2025_vehicle_margin_pct: 19.4
+      q2_2026_deliveries: 98330
+
+  "VOW3.DE":
+    name: 大眾集團
+    aliases: [Volkswagen, VW, 大眾, 大眾集團, VOW3, VOW]
+    market: DE
+    role: SHORT
+    thesis: >
+      中國合資量與應佔利潤一起塌；歐洲被中國出口擠是同一主題在目的地的鏡像。
+      盯應佔中國 JV 經營結果，不用集團合併營收代表中國生意。
+      集團利潤率有重組/保時捷等雜音，不拿來證偽這條。
+    kill: >
+      應佔中國 JV 經營結果同比不再下降，且連續兩個報告期未再惡化。
+    watch:
+      - 中國 JV 應佔利潤與中國交車量是否單季止跌。
+      - 歐洲 BEV 訂單（自救雜音）vs 中國品牌在歐份額（主題壓力）。
+    anchors:
+      h1_2026_china_jv_op_meur: 184
+      h1_2025_china_jv_op_meur: 506
+      h1_2026_group_op_margin_pct: 3.8
+
+# Every name carries `locked: true` implicitly via the sleeve; the loader
+# additionally requires exactly 4 names, exactly 2 LONG and 2 SHORT. Do
+# not auto-derive a fifth name, do not add a vs/pair field.
+locked: true
